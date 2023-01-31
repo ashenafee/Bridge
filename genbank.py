@@ -5,6 +5,8 @@ from Bio import Entrez
 from dotenv import load_dotenv
 from tqdm import tqdm
 import time
+import zipfile
+import shutil
 
 load_dotenv()
 
@@ -61,6 +63,33 @@ class GenBank:
         if r.status_code == 200:
             with open(f"{filename}.zip", 'wb') as f:
                 f.write(r.content)
+            
+            # Get absolute path to the file.
+            path = os.path.abspath(f"{filename}.zip")
+
+            # Create temporary directory.
+            os.mkdir("./temp")
+
+            # Unzip the file.
+            with zipfile.ZipFile(path, 'r') as zip_ref:
+                zip_ref.extractall("./temp")
+
+            # Delete the zip file.
+            os.remove(path)
+
+            # Get current working directory.
+            cwd = os.getcwd()
+            dl_data = cwd + "/temp/ncbi_dataset/data"
+
+            # Move the files to the data directory.
+            save = cwd + f"/{filename}/{filename}"
+            os.rename(f"{dl_data}/gene.fna", f"{save}-gene.fasta")
+            os.rename(f"{dl_data}/rna.fna", f"{save}-rna.fasta")
+            os.rename(f"{dl_data}/protein.faa", f"{save}-protein.fasta")
+
+            # Delete the directory.
+            shutil.rmtree("./temp")
+
         else:
             print(r.status_code)
 
@@ -77,6 +106,10 @@ class GenBank:
         # Parse the gene IDs from the summary.
         gene_ids = [line.split()[0].strip("()") for line in lines
                     if line[1] == "("]
+        
+        # Move the summary file to the data directory.
+        os.mkdir(f"./{filename}")
+        os.rename(f"{filename}-summary.txt", f"./{filename}/{filename}-summary.txt")
 
         return gene_ids
 
