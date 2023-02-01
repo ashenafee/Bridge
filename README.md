@@ -105,6 +105,20 @@ To filter BLAST results, specify the file containing the BLAST results you'd lik
 python bridge.py INPROGRESS
 ```
 
+### Filtering downloaded sequences
+
+For sequences downloaded from GenBank, you can filter them by taxonomy using the following command:
+
+```bash
+python bridge.py -ft TAXONOMY -f SUMMARY_FILE -o OUTPUT_FILE
+```
+
+For example, say we have a file named `summary.txt` and want to filter it by the taxonomy *Mammalia*. Then we can do so by running the following command:
+
+```bash
+python bridge.py -ft "Mammalia" -f "summary.txt" -o "filtered.txt"
+```
+
 ## Known issues
 
 - BLAST searches result in a CPU usage limit error

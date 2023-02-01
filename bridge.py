@@ -2,6 +2,8 @@ from genbank import GenBank
 from argparse import ArgumentParser
 from blast import blastn
 from ensembl import Ensembl
+from filter import filter_summary
+import os
 
 
 def setup_parser() -> ArgumentParser:
@@ -61,7 +63,7 @@ def main() -> None:
         else:
             exit()
     
-    if args.ensembl:
+    if args.ensembl: # TODO: Test
             
             if args.species and args.gene:
                 genes = args.gene.split(',')
@@ -71,11 +73,55 @@ def main() -> None:
                 data = es.search()
                 es.summarize(data, args.output)
                 es.download(args.output)
-
     
+    if args.filter:
+        # Filter option has been specified
+        if args.file:
+            # File has been specified
+            with open(args.file, 'r') as f:
+                lines = f.readlines()
+            
+            lines = filter_summary(lines, args.filter)
+            
+            if args.output:
 
+                # Format where the output should go
+                output_name = _summary_filter_path(args.file, args.output)
+
+                with open(output_name, 'w') as f:
+                    f.writelines(lines)
+            else:
+                print(''.join(lines))
+        else:
+            print('No file specified.')
+    
     # Exit the program
     exit()
+
+
+def _summary_filter_path(file: str, output: str) -> str:
+    """
+    Format the output path for the filtered summaryf ile.
+    :param file: The file to use.
+    :param output: The output file name.
+    :return: The output path.
+    """
+    # Get absolute path of file
+    file_path = os.path.abspath(file)
+
+    # Get the directory of the file
+    file_dir = os.path.dirname(file_path)
+
+    # Combine the directory and the output file name
+    output_path = os.path.join(file_dir, output)
+
+    # See if the path ends in .txt
+    if not output_path.endswith('.txt'):
+        # Add .txt to the end of the path
+        output_path += '.txt'
+
+    return output_path
+
 
 if __name__ == "__main__":
     main()

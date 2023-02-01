@@ -100,7 +100,9 @@ def filter_summary(results: list, filter: str) -> list:
     i1 = -1
     for i in range(len(results)):
         if start:
-            if not (results[i].startswith('\t') or results[i][0] == '-' or results[i].startswith('Lineage: ')):
+            if (not (results[i].startswith('\t') or 
+            results[i][0] == '-' or 
+            results[i].startswith('Lineage: '))) or (i == len(results) - 1):
                 i2 = i
                 entries.append((i1, i2, filter_upper in lineage))
                 start = False
