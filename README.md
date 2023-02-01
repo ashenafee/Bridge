@@ -16,7 +16,8 @@ Currently, Bridge can search: [GenBank](https://www.ncbi.nlm.nih.gov/genbank/) a
 
 ## Pre-requisites
 
-- Python 3.10+
+- [Python 3.10+](https://www.python.org/)
+- [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html)
 
 ## Installation
 
