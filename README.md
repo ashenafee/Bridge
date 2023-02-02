@@ -6,7 +6,7 @@ Bridge is a genetic analysis toolkit built using Python. It currently has suppor
 
 - Acquiring biological sequences from different databases
 - Running BLAST searches
-- Filtering BLAST results based off taxonomy
+- Filtering downloaded sequence results based off taxonomy
 
 Currently, Bridge can search: [GenBank](https://www.ncbi.nlm.nih.gov/genbank/) and [Ensembl](https://useast.ensembl.org/index.html) for biological sequences. From these sources, one can download:
 
