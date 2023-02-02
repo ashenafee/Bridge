@@ -124,6 +124,22 @@ python bridge.py -ft "Mammalia" -f "summary.txt" -o "filtered.txt"
 - BLAST searches result in a CPU usage limit error
 - Cannot search GenBank for large (~500) amounts of sequences at once
 
+## Roadmap
+
+- [] Add filtering capabilities for BLAST results
+- [] Allow the user to search for a gene and species to run a BLAST search on
+- [] Create a basic GUI to make the program more user-friendly
+- [] Add support for aligning sequences
+- [] Add support for phylogenetic tree generation
+
+## Contributing
+
+Contributions are welcome! If you run into a new issue, please create a new issue on the [issues](https://github.com/ashenafee/Bridge/issues) page. If you'd like to contribute to the project, please fork the repository and submit a pull request.
+
+## Authors
+
+- **Ashenafee Mandefro** - *Whole project* - [ashenafee](https://www.ashenafee.com/)
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
