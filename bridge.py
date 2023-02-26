@@ -1,8 +1,8 @@
-from genbank import GenBank
+from genbank import GenBank, GenBankDDL
 from argparse import ArgumentParser
 from blast import blastn
 from ensembl import Ensembl
-from filter import filter_summary
+from filter import filter_summary, filter_blast
 import os
 
 
@@ -25,6 +25,9 @@ def setup_parser() -> ArgumentParser:
     parser.add_argument('-b', dest='blast', action='store_const', 
                         const=True, default=False, required=False,
                         help='The path to the BLAST file to use.')
+    parser.add_argument('-bp', '--blast_params', required=False,
+                        help='The parameters to use for the BLAST search. \
+                            Only use with -b.')
     parser.add_argument('-gb', dest='genbank', action='store_const',
                         const=True, default=False, required=False,
                         help='Specify for a GenBank search.')
@@ -34,6 +37,10 @@ def setup_parser() -> ArgumentParser:
     parser.add_argument('-ft', '--filter', required=False,
                         help='The lineage to filter the results by. \
                             Only use with -b.')
+    parser.add_argument('-bf', dest='blast_filter', action='store_const',
+                        const=True, default=False, required=False,
+                        help='Specify to filter the BLAST results. \
+                            Only use with -ft.')
 
     return parser
 
@@ -58,8 +65,18 @@ def main() -> None:
 
     if args.blast:
 
+        # Check if custom parameters have been specified
+        params = {}
+        
+        if args.blast_params:
+            # Split the parameters by comma
+            params = args.blast_params.split(',')
+            # Make the parameters a dictionary
+            params = {param.split('=')[0]: param.split('=')[1] 
+                      for param in params}
+
         if args.file:
-            blastn(args.file, out=args.output)
+            blastn(args.file, out=args.output, params=params)
         else:
             exit()
     
@@ -75,23 +92,32 @@ def main() -> None:
                 es.download(args.output)
     
     if args.filter:
-        # Filter option has been specified
         if args.file:
-            # File has been specified
-            with open(args.file, 'r') as f:
-                lines = f.readlines()
-            
-            lines = filter_summary(lines, args.filter)
-            
-            if args.output:
 
-                # Format where the output should go
-                output_name = _summary_filter_path(args.file, args.output)
+            if args.blast_filter:
+                # Open the BLAST results
+                filtered = filter_blast(args.file, args.filter)
 
-                with open(output_name, 'w') as f:
-                    f.writelines(lines)
+                # Download the filtered results
+                gb = GenBankDDL(records=filtered)
+                gb.download(filename=args.output)
+
             else:
-                print(''.join(lines))
+
+                with open(args.file, 'r') as f:
+                    lines = f.readlines()
+                
+                lines = filter_summary(lines, args.filter)
+                
+                if args.output:
+
+                    # Format where the output should go
+                    output_name = _summary_filter_path(args.file, args.output)
+
+                    with open(output_name, 'w') as f:
+                        f.writelines(lines)
+                else:
+                    print(''.join(lines))
         else:
             print('No file specified.')
     
