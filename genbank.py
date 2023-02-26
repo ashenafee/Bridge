@@ -87,6 +87,26 @@ class GenBank:
             os.rename(f"{dl_data}/rna.fna", f"{save}-rna.fasta")
             os.rename(f"{dl_data}/protein.faa", f"{save}-protein.fasta")
 
+            # Remove any non "NM" entries from rna.fasta
+            with open(f"{save}-rna.fasta", "r") as f:
+                lines = f.readlines()
+            
+            transcript = ""
+            begin = False
+            for line in lines:
+                if line[1] == 'N' and line[2] == 'M':
+                    begin = True
+                else:
+                    if line[0] == ">":
+                        begin = False
+                
+                if begin:
+                    transcript += line
+            
+            with open(f"{save}-rna.fasta", "w") as f:
+                f.write(transcript)
+
+
             # Delete the directory.
             shutil.rmtree("./temp")
 
@@ -278,6 +298,39 @@ class GenBank:
         }
 
 
+class GenBankDDL:
+    """
+    A class for downloading sequence data, given a list of GenBank records.
+    """
+
+    def __init__(self, records: list):
+        self.records = records
+        self.entrez = Entrez
+        self.entrez.email = EMAIL
+        self.entrez.api_key = API_KEY
+
+    def download(self, filename: str) -> None:
+        """
+        Download the GenBank records.
+        :param filename:
+        :return:
+        """
+        for record in tqdm(self.records, bar_format='{l_bar}{bar}| {n_fmt}/'
+                                                    '{total_fmt} records have '
+                                                    'been downloaded.'):
+            handle = self.entrez.efetch(db="nucleotide", id=record,
+                                        rettype="fasta", retmode="text")
+
+            with open(f"{filename}.fasta", "a") as f:
+                f.write(handle.read())
+
+            handle.close()
+
+            time.sleep(0.20)
+
+        print(f"Downloaded {len(self.records)} records to {filename}.fasta.")
+
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
 
@@ -343,10 +396,10 @@ if __name__ == '__main__':
         gb.download("short-test-1")
 
 
-    #gb = GenBank(genes, species)
-    #data = gb.search()
-    #gb.summarize("homo_rho", data)
-    #gb.download("homo_rho")
+    # gb = GenBank(genes, species)
+    # data = gb.search()
+    # gb.summarize("homo_rho", data)
+    # gb.download("homo_rho")
 
 # TODO: A docker image, singularity package, something like pip, but these options work across platforms
 # MACSE large dataset pipeline uses singularity; good for upscaling and packaging!

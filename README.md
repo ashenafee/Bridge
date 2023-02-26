@@ -97,12 +97,39 @@ For example, say we have a file named `sequences.fasta` and want to run BLAST on
 python bridge.py -b -f "sequences.fasta"
 ```
 
+#### Running BLAST searches with custom parameters
+
+To run BLAST searches with custom parameters, specify the file containing the sequences you'd like to search against and the parameters you'd like to use.
+
+```bash
+python bridge.py -b -f FILE -bp PARAMETERS
+```
+
+For example, say we have a file named `sequences.fasta` and want to run BLAST on it with the following parameters:
+
+- *evalue* = 0.001
+- *word_size* = 3
+- *gapopen* = 11
+- *max_target_seqs* = 5
+
+We can do so by running the following command:
+
+```bash
+python bridge.py -b -f "sequences.fasta" -bp "evalue=0.001,word_size=3,gapopen=11,max_target_seqs=5"
+```
+
 ### Filtering BLAST results
 
 To filter BLAST results, specify the file containing the BLAST results you'd like to filter and the taxonomy you'd like to filter by.
 
 ```bash
-python bridge.py INPROGRESS
+python bridge.py -ft TAXONOMY -f FILE -o OUTPUT_FILE -bf
+```
+
+For example, say we have a file named `blast_results.txt` and want to filter it by the taxonomy *Mammalia*. Then we can do so by running the following command:
+
+```bash
+python bridge.py -ft "Mammalia" -f "blast_results.txt" -o "filtered.txt" -bf
 ```
 
 ### Filtering downloaded sequences

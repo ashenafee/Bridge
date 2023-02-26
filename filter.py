@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 from blast import read_blast
 import requests
 
@@ -35,52 +36,6 @@ def filter(results: list, filter: str) -> list:
             filtered.append(result)
     return filtered
 
-
-# def filter_summary(results: list, filter: str) -> list:
-#     """
-#     Filter the results found in a summary file.
-#     :param results:
-#     :param filter:
-#     :return:
-#     """
-#     # Loop through each line in the results and check the species lineage.
-#     lines = results[:]
-#     removed = 0
-#     filter_upper = filter.upper()
-#
-#     lineage = []
-#     i = 0
-#
-#     while i < len(results):
-#         line = lines[i]
-#         if line.startswith('Lineage: '):
-#             lineage = line.split('Lineage: ')[1]
-#             lineage = lineage.split(';')
-#             lineage = [x.strip().upper() for x in lineage]
-#
-#         if line.startswith('\t'):
-#             # This is a result line
-#             if filter_upper not in lineage:
-#                 # This result is not in the filter lineage
-#                 lines.pop(i - 1)
-#                 lines.pop(i - 1)
-#                 lines.pop(i - 1)
-#
-#                 removed += 3
-#                 i -= 3
-#
-#         if line.startswith('Failed'):
-#             break
-#
-#         i += 1
-#
-#     # Remove empty lines
-#     lines = [x for x in lines if x != '']
-#
-#     # Add the number of removed results to the top of the file
-#     lines.insert(0, f'Removed {removed} results not in lineage {filter}\n')
-#
-#     return lines
 
 def filter_summary(results: list, filter: str) -> list:
     """
@@ -129,21 +84,61 @@ def filter_summary(results: list, filter: str) -> list:
     return res
 
 
-def filter_blast(blast_output: str, filter: str) -> list:
+def filter_blast(blast_file: str, filter: str) -> list:
     """
     Filter the blast output based on a taxonomic filter.
-    :param blast_output:
+    :param blast_file:
+    :param filter:
     :return:
     """
-    # https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=38937,28377
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" \
-          "db=taxonomy&id={IDS}"
+
+    # Read the results
+    results = read_blast(blast_file)
+
+    # Get the taxids
+    ids = [results[x]['taxid'] for x in results]
+
+    # Make sure the ids are unique
+    ids = list(set(ids))
 
     # Send the request
-    r = requests.get(url)
+    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" \
+          "db=taxonomy&id={IDS}"
+    r = requests.get(url.format(IDS=",".join(ids)))
 
-    # Get the results from the blast output
-    results = read_blast(blast_output)
+    tax_map = _map_id_to_lineage(r)
+
+    # Filter the results
+    filtered = []
+    for result in results:
+        taxid = results[result]['taxid']
+        lineage = tax_map[taxid]
+        if filter in lineage:
+            filtered.append(result)
+    
+    return filtered
+
+
+def _map_id_to_lineage(r: requests.Response) -> dict:
+    """
+    Given the response from the NCBI taxonomy database, map the IDs to their
+    respective lineages.
+    :param r:
+    :return:
+    """
+    # Parse the XML results using BeautifulSoup
+    soup = BeautifulSoup(r.text, features='xml')
+    # Remove all of 'LineageEx'
+    for x in soup.find_all('LineageEx'):
+        x.decompose()
+    # Get taxids and lineages
+    taxa = soup.findAll('Taxon')
+    # Build the map of tax ID to lineage
+    tax_map = {}
+    for taxon in taxa:
+        tax_map[taxon.TaxId.text] = taxon.Lineage.text.split('; ')
+
+    return tax_map
 
 
 if __name__ == '__main__':
