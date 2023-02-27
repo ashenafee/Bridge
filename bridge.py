@@ -1,6 +1,6 @@
 from genbank import GenBank, GenBankDDL
 from argparse import ArgumentParser
-from blast import blastn
+from blast import blastn, blast_by_species_and_symbol
 from ensembl import Ensembl
 from filter import filter_summary, filter_blast
 import os
@@ -78,7 +78,14 @@ def main() -> None:
         if args.file:
             blastn(args.file, out=args.output, params=params)
         else:
-            exit()
+            # User is searching by name and gene symbol
+            if args.species and args.gene and args.output:
+                genes = args.gene.split(',')
+                species = args.species.split(',')
+
+                blast_by_species_and_symbol(species, genes, output=args.output)
+        
+        exit()
     
     if args.ensembl: # TODO: Test
             

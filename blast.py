@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 
 from Bio import SearchIO
@@ -8,7 +9,7 @@ from bs4 import BeautifulSoup
 from genbank import GenBank, GenBankDDL
 
 
-def blastn(query, params=None, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
+def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
            ws=11, rw=2, pn=-3, go=5, ge=2, tl=18, tt='coding') -> None:
     """
     Run a blastn search on the given query.
@@ -27,8 +28,6 @@ def blastn(query, params=None, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
     :param tt: The template type.
     :return:
     """
-    # TODO: Add permissible values for the parameters given above.
-
     # Setup parameters    
     blastn_cline = NcbiblastnCommandline(query=query,
                                         db=db,
@@ -148,7 +147,8 @@ def _map_id_to_lineage(r: requests.Response) -> dict:
     return tax_map
 
 
-def blast_by_species_and_symbol(species: str, symbol: str) -> None:
+def blast_by_species_and_symbol(species: list, symbol: list, 
+                                output: str) -> None:
     """
     Run a BLAST search by downloading the sequence for the given symbol and
     species.
@@ -159,10 +159,19 @@ def blast_by_species_and_symbol(species: str, symbol: str) -> None:
     # TODO: Complete this function.
 
     # Search for the symbol in the GenBank database
-    gb = GenBank([species], [symbol])
+    gb = GenBank(symbol, species)
     data = gb.search()
-    gb.download(filename="", records=data)
-    print("Done!")
+
+    # Download the sequence
+    gb.download(filename="btemp", records=data)
+
+    # Run the BLAST search
+    blastn('./btemp/btemp-rna.fasta', out=output)
+
+    # Delete the temporary folder
+    shutil.rmtree('./btemp')
+
+    # TODO: Download BLAST results
 
 if __name__ == "__main__":
     # Run the BLAST search

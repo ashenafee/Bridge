@@ -81,6 +81,10 @@ class GenBank:
             cwd = os.getcwd()
             dl_data = cwd + "/temp/ncbi_dataset/data"
 
+            # Create the data directory if it doesn't exist.
+            if os.path.exists(f"{cwd}/{filename}") is False:
+                os.mkdir(f"./{filename}")
+
             # Move the files to the data directory.
             save = cwd + f"/{filename}/{filename}"
             os.rename(f"{dl_data}/gene.fna", f"{save}-gene.fasta")
