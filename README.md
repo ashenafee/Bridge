@@ -155,9 +155,9 @@ python bridge.py -ft "Mammalia" -f "summary.txt" -o "filtered.txt"
 
 - [x] Add filtering capabilities for BLAST results
 - [x] Allow the user to search for a gene and species to run a BLAST search on
-- [ ] Create a basic GUI to make the program more user-friendly
 - [ ] Add support for aligning sequences
 - [ ] Add support for phylogenetic tree generation
+- [ ] Create a basic GUI to make the program more user-friendly
 
 ## Contributing
 
