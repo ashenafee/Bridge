@@ -134,3 +134,4 @@ dmypy.json
 *summary.txt
 *.out
 *.vscode
+*.aln
