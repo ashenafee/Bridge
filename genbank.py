@@ -154,6 +154,12 @@ class GenBank:
         Output a summary of the given GenBank records.
         :return:
         """
+
+        if filename is None:
+            # Create a filename based on the genes and species.
+            filename = f"{len(self.genes)}-genes-{len(self.species)}-species"
+
+
         summary = ""
         by_organisms = {}
         failed = []
