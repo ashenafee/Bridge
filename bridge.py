@@ -102,7 +102,11 @@ def main() -> None:
                       for param in params}
 
         if args.file:
-            blastn(args.file, out=args.output, params=params)
+
+            if args.output:
+                blastn(args.file, out=args.output, params=params)
+            else:
+                blastn(args.file, params=params)
         else:
             # User is searching by name and gene symbol
             if args.species and args.gene and args.output:

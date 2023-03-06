@@ -45,7 +45,6 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
                                         template_length=tl,
                                         template_type=tt,
                                         )
-    print(blastn_cline)
     blastn_cline = _setup_blast_params(blastn_cline, params)
     subprocess.call(str(blastn_cline), shell=True)
 
@@ -66,8 +65,6 @@ def _setup_blast_params(executable, params: dict) -> NcbiblastnCommandline:
 
     for x, y in params.items():
         setattr(executable, x, y)
-
-    print(executable)
     
     return executable
 
