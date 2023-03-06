@@ -14,6 +14,12 @@ def setup_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Run a BLAST search by downloading the '
                                         'sequence for the given symbol and '
                                         'species.')
+    
+    # Setup-related arguments
+    parser.add_argument('-is', '--initial_setup', required=False,
+                        help='Run the initial setup for the program.')
+
+
     parser.add_argument('-f', '--file', required=False,
                         help='The file to use in analysis.')
     parser.add_argument('-o', '--output', required=False,
@@ -42,6 +48,10 @@ def setup_parser() -> ArgumentParser:
                         help='Specify to filter the BLAST results. \
                             Only use with -ft.')
 
+    # Alignment arguments
+    parser.add_argument('-a', '--align', required=False,
+                        help='The algorithm to use for MSA.')
+
     return parser
 
 
@@ -51,6 +61,20 @@ def main() -> None:
     """
     parser = setup_parser()
     args = parser.parse_args()
+
+    if args.initial_setup:
+        # Ask the user for their NCBI email
+        email = input('Please enter your NCBI email: ')
+        # Ask the user for their NCBI API key
+        api_key = input('Please enter your NCBI API key: ')
+
+        # Write the email and API key to the env file
+        with open('.env', 'w') as f:
+            f.write(f'EMAIL=\'{email}\'\nNCBI_API_KEY={api_key}')
+        
+        # Exit the program
+        print('Setup complete. Please run the program again.')
+        exit()
 
     if args.genbank:
 
@@ -128,6 +152,10 @@ def main() -> None:
         else:
             print('No file specified.')
     
+    if args.align:
+        # TODO: Create alignment module
+        pass
+
     # Exit the program
     exit()
 
