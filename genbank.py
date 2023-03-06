@@ -48,6 +48,10 @@ class GenBank:
         :return:
         """
 
+        if filename is None:
+            # Create a filename based on the genes and species.
+            filename = f"{len(self.genes)}-genes-{len(self.species)}-species"
+
         if records is not None:
             gene_ids = self._download_from_records(records)
         else:
