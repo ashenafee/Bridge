@@ -16,8 +16,10 @@ def setup_parser() -> ArgumentParser:
                                         'species.')
     
     # Setup-related arguments
-    parser.add_argument('-is', '--initial_setup', required=False,
-                        help='Run the initial setup for the program.')
+    parser.add_argument('-is', '--initial_setup', dest='initial_setup',
+                        action='store_const', const=True, default=False,
+                        required=False, help='Run the initial setup for the '
+                                                'program.')
 
 
     parser.add_argument('-f', '--file', required=False,
