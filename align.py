@@ -10,11 +10,13 @@
 import os
 import platform
 import sys
+from time import sleep
 from Bio.Align.Applications import MuscleCommandline
 from shutil import which
 
 import requests
 from tqdm import tqdm
+from threading import Thread
 
 
 
@@ -25,6 +27,10 @@ class Muscle:
 
     def __init__(self, input: str, output: str):
         self.input = input
+
+        if "." not in output:
+            output += ".aln"
+
         self.output = output
 
         self.program = ""
@@ -91,8 +97,31 @@ class Muscle:
         """
         muscle = MuscleCommandline(self.program, input=self.input, 
                                    out=self.output)
-        muscle()
 
+        # Run MUSCLE on a separate thread
+        t = Thread(target=self._run_muscle, args=(muscle,))
+        t.start()
+
+        # Show a progress bar
+        pbar = tqdm(bar_format='[ALIGN] - Time elapsed:\t{elapsed}',)
+
+        # Update the progress bar
+        while t.is_alive():
+            pbar.update(1)
+            sleep(1)
+
+        # Close the progress bar
+        pbar.close()
+
+        t.join()
+
+        
+    
+    def _run_muscle(self, muscle):
+        """
+        Helper function to run MUSCLE on a separate thread.
+        """
+        muscle()
 
 # class Mafft:
 #     """

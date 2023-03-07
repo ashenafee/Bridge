@@ -3,7 +3,9 @@ from argparse import ArgumentParser
 from blast import blastn, blast_by_species_and_symbol
 from ensembl import Ensembl
 from filter import filter_summary, filter_blast
+from align import Muscle
 import os
+from iq import Tree
 
 
 def setup_parser() -> ArgumentParser:
@@ -159,8 +161,29 @@ def main() -> None:
             print('No file specified.')
     
     if args.align:
-        # TODO: Create alignment module
-        pass
+        # Check for the algorithm to use
+        if args.align == 'muscle':
+            # Setup MUSCLE
+            muscle = Muscle(args.file, args.output)
+
+            # Check if MUSCLE exists
+            if not muscle.check_installed():
+                # Install MUSCLE
+                muscle.install_muscle()
+
+            muscle.align()
+
+            # Run the output through IQ-TREE
+            tree = Tree(input=muscle.output, output=f"{muscle.output}-tree")
+
+            # Check if IQ-TREE exists
+            if not tree.check_installed():
+                # Install IQ-TREE
+                tree.install()
+
+            tree.run()
+        
+        
 
     # Exit the program
     exit()

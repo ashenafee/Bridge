@@ -419,3 +419,6 @@ if __name__ == '__main__':
 # MACSE large dataset pipeline uses singularity; good for upscaling and packaging!
 # Being able to have a tree as part of sequence selection (easier to view ANNOTATED tree instead of numbers)
 # Think of the end-goal; make it very clear! The fact that it's not implemented in anything else very well; selling point!
+
+
+# TODO: Search genes based off taxonomy instead of just species name.
