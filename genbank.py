@@ -48,6 +48,10 @@ class GenBank:
         :return:
         """
 
+        if filename is None:
+            # Create a filename based on the genes and species.
+            filename = f"{len(self.genes)}-genes-{len(self.species)}-species"
+
         if records is not None:
             gene_ids = self._download_from_records(records)
         else:
@@ -154,6 +158,12 @@ class GenBank:
         Output a summary of the given GenBank records.
         :return:
         """
+
+        if filename is None:
+            # Create a filename based on the genes and species.
+            filename = f"{len(self.genes)}-genes-{len(self.species)}-species"
+
+
         summary = ""
         by_organisms = {}
         failed = []
@@ -409,3 +419,6 @@ if __name__ == '__main__':
 # MACSE large dataset pipeline uses singularity; good for upscaling and packaging!
 # Being able to have a tree as part of sequence selection (easier to view ANNOTATED tree instead of numbers)
 # Think of the end-goal; make it very clear! The fact that it's not implemented in anything else very well; selling point!
+
+
+# TODO: Search genes based off taxonomy instead of just species name.

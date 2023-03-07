@@ -46,7 +46,6 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
                                         template_type=tt,
                                         )
     blastn_cline = _setup_blast_params(blastn_cline, params)
-    
     subprocess.call(str(blastn_cline), shell=True)
 
 

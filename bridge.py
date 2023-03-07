@@ -3,7 +3,9 @@ from argparse import ArgumentParser
 from blast import blastn, blast_by_species_and_symbol
 from ensembl import Ensembl
 from filter import filter_summary, filter_blast
+from align import Muscle
 import os
+from iq import Tree
 
 
 def setup_parser() -> ArgumentParser:
@@ -14,6 +16,14 @@ def setup_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Run a BLAST search by downloading the '
                                         'sequence for the given symbol and '
                                         'species.')
+    
+    # Setup-related arguments
+    parser.add_argument('-is', '--initial_setup', dest='initial_setup',
+                        action='store_const', const=True, default=False,
+                        required=False, help='Run the initial setup for the '
+                                                'program.')
+
+
     parser.add_argument('-f', '--file', required=False,
                         help='The file to use in analysis.')
     parser.add_argument('-o', '--output', required=False,
@@ -42,6 +52,10 @@ def setup_parser() -> ArgumentParser:
                         help='Specify to filter the BLAST results. \
                             Only use with -ft.')
 
+    # Alignment arguments
+    parser.add_argument('-a', '--align', required=False,
+                        help='The algorithm to use for MSA.')
+
     return parser
 
 
@@ -51,6 +65,20 @@ def main() -> None:
     """
     parser = setup_parser()
     args = parser.parse_args()
+
+    if args.initial_setup:
+        # Ask the user for their NCBI email
+        email = input('Please enter your NCBI email: ')
+        # Ask the user for their NCBI API key
+        api_key = input('Please enter your NCBI API key: ')
+
+        # Write the email and API key to the env file
+        with open('.env', 'w') as f:
+            f.write(f'EMAIL=\'{email}\'\nNCBI_API_KEY={api_key}')
+        
+        # Exit the program
+        print('Setup complete. Please run the program again.')
+        exit()
 
     if args.genbank:
 
@@ -76,7 +104,11 @@ def main() -> None:
                       for param in params}
 
         if args.file:
-            blastn(args.file, out=args.output, params=params)
+
+            if args.output:
+                blastn(args.file, out=args.output, params=params)
+            else:
+                blastn(args.file, params=params)
         else:
             # User is searching by name and gene symbol
             if args.species and args.gene and args.output:
@@ -128,6 +160,31 @@ def main() -> None:
         else:
             print('No file specified.')
     
+    if args.align:
+        # Check for the algorithm to use
+        if args.align == 'muscle':
+            # Setup MUSCLE
+            muscle = Muscle(args.file, args.output)
+
+            # Check if MUSCLE exists
+            if not muscle.check_installed():
+                # Install MUSCLE
+                muscle.install_muscle()
+
+            muscle.align()
+
+            # Run the output through IQ-TREE
+            tree = Tree(input=muscle.output, output=f"{muscle.output}-tree")
+
+            # Check if IQ-TREE exists
+            if not tree.check_installed():
+                # Install IQ-TREE
+                tree.install()
+
+            tree.run()
+        
+        
+
     # Exit the program
     exit()
 
