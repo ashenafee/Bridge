@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+from time import sleep
 
 from Bio import SearchIO
 from Bio.Blast.Applications import NcbiblastnCommandline
@@ -7,6 +8,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from genbank import GenBank, GenBankDDL
+from threading import Thread
+from tqdm import tqdm
 
 
 def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
@@ -46,7 +49,31 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
                                         template_type=tt,
                                         )
     blastn_cline = _setup_blast_params(blastn_cline, params)
-    subprocess.call(str(blastn_cline), shell=True)
+
+    # Create a new thread
+    t = Thread(target=_blast_thread, args=(blastn_cline,))
+    t.start()
+
+    # Show a progress bar
+    pbar = tqdm(bar_format='[BLAST] - Time elapsed:\t{elapsed}',)
+
+    # Update the progress bar
+    while t.is_alive():
+        pbar.update(1)
+        sleep(1)
+    
+    # Close the progress bar
+    pbar.close()
+
+    t.join()
+
+
+def _blast_thread(blastn: NcbiblastnCommandline):
+    """
+    Thread to run the BLAST search.
+    :return:
+    """
+    subprocess.call(str(blastn), shell=True)
 
 
 def _setup_blast_params(executable, params: dict) -> NcbiblastnCommandline:
