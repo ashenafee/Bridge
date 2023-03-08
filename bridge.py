@@ -80,6 +80,12 @@ def main() -> None:
         print('Setup complete. Please run the program again.')
         exit()
 
+    # Check if some file output name is specified
+    if args.blast or args.genbank or args.ensembl or args.filter or args.align:
+        if not args.output:
+            print('Please specify an output file name.\nUse -o <output>')
+            exit()
+
     if args.genbank:
 
         if args.species and args.gene:
