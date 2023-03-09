@@ -29,6 +29,7 @@ class Tree:
 
         self.lineages = {}
         self.ranks = {}
+        self.accessions = {}
 
         self.program = ""
 
@@ -159,6 +160,9 @@ class Tree:
         # Display the pie chart
         self._display_pie_chart()
 
+        # Rename the FASTA headers in the alignment file
+        self._rename_headers()
+
         # Create a thread to run IQ-TREE
         t = Thread(target=self._run_iqtree)
         t.start()
@@ -173,7 +177,6 @@ class Tree:
 
         # Close the progress bar
         pbar.close()
-
         t.join()
 
         # Remove non-tree files
@@ -186,6 +189,39 @@ class Tree:
 
         # Display the tree
         self._display_tree()
+
+    def _rename_headers(self):
+        """
+        Rename the FASTA headers in the input alignment file.
+        """
+        # Open the input alignment
+        with open(self.input, 'r') as f:
+            lines = f.readlines()
+        
+        # Remove non-header lines
+        headers = [line for line in lines if line[0] == '>']
+
+        # Grab the accessions for each entry
+        accessions = [header.split(' ')[0][1:] for header in headers]
+
+        # Create new headers
+        headers = []
+        for accession in accessions:
+            # Grab the species
+            species = self.accessions[accession]
+
+            # Create the new header
+            header = f'>{species.replace(" ", "_")}_({accession})\n'
+            headers.append(header)
+        
+        # Replace the headers in the input alignment
+        for i in range(len(lines)):
+            if lines[i][0] == '>':
+                lines[i] = headers.pop(0)
+        
+        # Write the new alignment
+        with open(self.input, 'w') as f:
+            f.writelines(lines)
 
     def _get_phylogenies(self) -> dict:
         """
@@ -275,6 +311,10 @@ class Tree:
             lineage = record['GBSeq_taxonomy'].split('; ')
             # Add the lineage to the dictionary
             self.lineages[accession] = lineage
+            # Grab the species name
+            species = record['GBSeq_organism']
+            # Add the species name to the dictionary
+            self.accessions[accession] = species
 
     def _run_iqtree(self):
         """
