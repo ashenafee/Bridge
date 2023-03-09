@@ -92,7 +92,7 @@ def _download_blast_results(out):
         lines = f.readlines()
     
     # Get the accessions of the results
-    accessions = [line.split(' ')[1] for line in lines]
+    accessions = [line.split('\t')[1] for line in lines]
 
     # Use Biopython's Entrez module to download the sequences
     gb = GenBankDDL(records=accessions)
