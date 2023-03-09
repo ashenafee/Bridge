@@ -227,6 +227,7 @@ pip install virtualenv
 - [x] Allow the user to search for a gene and species to run a BLAST search on
 - [x] Add support for aligning sequences
 - [x] Add support for phylogenetic tree generation
+- [ ] Add automatic BLAST download if not found in PATH
 - [ ] Create a basic GUI to make the program more user-friendly
 
 ## Contributing
