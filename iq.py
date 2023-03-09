@@ -10,6 +10,7 @@ from threading import Thread
 import subprocess
 from Bio import Phylo
 from Bio import Entrez
+from datetime import datetime
 
 
 EMAIL = os.getenv("EMAIL")
@@ -21,12 +22,13 @@ class Tree:
     A phylogenetic tree generated from a multiple sequence alignment.
     """
 
-    def __init__(self, input: str, output: str):
+    def __init__(self, input: str, output: str, filter: str):
         self.input = input
         self.output = output
+        self.filter = filter
 
         self.lineages = {}
-        self.orders = {}
+        self.ranks = {}
 
         self.program = ""
 
@@ -205,7 +207,7 @@ class Tree:
                                      retmode='xml')
         self._parse_records(records)
 
-        # Count the number of species that fall under each Order
+        # Count the number of species that fall under each specified rank
         for accession in self.lineages:
             # Grab the lineage
             taxonomies = self.lineages[accession]
@@ -224,32 +226,39 @@ class Tree:
                                             retmode='xml')
             records = Entrez.read(records)
 
-            # Find which record is the Order
+            # Find which record is the specified rank
             for record in records:
-                if record['Rank'] == 'order':
-                    # Grab the Order
-                    order = record['ScientificName']
+                if record['Rank'] == self.filter.lower():
+                    # Grab the rank
+                    rank = record['ScientificName']
                     # Add the Order to the dictionary
-                    if order in self.orders:
-                        self.orders[order] += 1
+                    if rank in self.ranks:
+                        self.ranks[rank] += 1
                     else:
-                        self.orders[order] = 1
+                        self.ranks[rank] = 1
                     break
 
             sleep(0.25)
 
         # Sort the dictionary by the number of species
-        self.orders = dict(sorted(self.orders.items(), key=lambda item: item[1], reverse=True))
+        self.ranks = dict(sorted(self.ranks.items(), key=lambda item: item[1], reverse=True))
     
     def _display_pie_chart(self):
         """
         Display the pie chart of the phylogeny distribution.
         """
-        # Create a pie chart of the Orders
+        # Create a pie chart of the specified rank distribution
         plt.figure(figsize=(10, 10))
-        plt.pie(self.orders.values(), labels=self.orders.keys(), autopct='%1.1f%%')
-        plt.title('Orders of the Species in the Alignment')
-        plt.savefig('orders.png')
+        plt.pie(self.ranks.values(), labels=self.ranks.keys(), autopct='%1.1f%%')
+        plt.title(f'{self.rank.capitalize()} Distribution')
+
+        filename = f'{self.rank}-\
+            {datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}.png'
+
+        plt.savefig(filename)
+
+        # Display the pie chart
+        plt.show()
 
     def _parse_records(self, records: str) -> None:
         """

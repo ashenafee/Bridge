@@ -55,6 +55,9 @@ def setup_parser() -> ArgumentParser:
     # Alignment arguments
     parser.add_argument('-a', '--align', required=False,
                         help='The algorithm to use for MSA.')
+    parser.add_argument('-t', '--taxonomy', required=False,
+                        help='The taxonomic rank to show distribution by. \
+                            Only use with -a.')
 
     return parser
 
@@ -167,6 +170,11 @@ def main() -> None:
             print('No file specified.')
     
     if args.align:
+
+        # If a filter is not given, use the default
+        if not args.filter:
+            args.filter = 'order'
+
         # Check for the algorithm to use
         if args.align == 'muscle':
             # Setup MUSCLE
@@ -180,7 +188,8 @@ def main() -> None:
             muscle.align()
 
             # Run the output through IQ-TREE
-            tree = Tree(input=muscle.output, output=f"{muscle.output}-tree")
+            tree = Tree(input=muscle.output, output=f"{muscle.output}-tree",
+                        filter=args.filter)
 
             # Check if IQ-TREE exists
             if not tree.check_installed():
