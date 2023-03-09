@@ -22,10 +22,10 @@ class Tree:
     A phylogenetic tree generated from a multiple sequence alignment.
     """
 
-    def __init__(self, input: str, output: str, filter: str):
+    def __init__(self, input: str, output: str, rank: str):
         self.input = input
         self.output = output
-        self.filter = filter
+        self.rank = rank
 
         self.lineages = {}
         self.ranks = {}

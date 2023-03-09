@@ -189,7 +189,7 @@ def main() -> None:
 
             # Run the output through IQ-TREE
             tree = Tree(input=muscle.output, output=f"{muscle.output}-tree",
-                        filter=args.filter)
+                        rank=args.filter)
 
             # Check if IQ-TREE exists
             if not tree.check_installed():
