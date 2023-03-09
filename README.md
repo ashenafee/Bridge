@@ -55,7 +55,13 @@ chmod +x ./setup
 ./setup
 ```
 
-5. Launch the program
+5. Activate the virtual environment
+
+```bash
+source "venv/bin/activate"
+```
+
+6. Launch the program
 
 ```bash
 python bridge.py --help
@@ -198,6 +204,16 @@ python bridge.py -a "muscle" -t "order" -f "sequences.fasta" -o "aligned.fasta"
 ```
 
 This will create an alignment file named `aligned.fasta`, which is then used to generate a tree. The distribution of sequences in the tree will be displayed by the specified rank (i.e., 20% of species in the alignment are Primates).
+
+## Frequently Asked Questions
+
+**When running the setup script, I get `virtualenv command not found`. How do I fix this?**
+
+It's likely that `virtualenv` is not bundled with your installation of Python. Run the command below and then re-run the setup script to fix the issue:
+
+```bash
+pip install virtualenv
+```
 
 ## Known issues
 
