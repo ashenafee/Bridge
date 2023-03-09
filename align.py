@@ -114,9 +114,7 @@ class Muscle:
         pbar.close()
 
         t.join()
-
-        
-    
+   
     def _run_muscle(self, muscle):
         """
         Helper function to run MUSCLE on a separate thread.

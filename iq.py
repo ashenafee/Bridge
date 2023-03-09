@@ -1,6 +1,7 @@
 import sys
 from time import sleep
 import zipfile
+from matplotlib import pyplot as plt
 import requests
 import os
 from tqdm import tqdm
@@ -8,6 +9,11 @@ from shutil import which
 from threading import Thread
 import subprocess
 from Bio import Phylo
+from Bio import Entrez
+
+
+EMAIL = os.getenv("EMAIL")
+API_KEY = os.getenv("NCBI_API_KEY")
 
 
 class Tree:
@@ -19,7 +25,14 @@ class Tree:
         self.input = input
         self.output = output
 
+        self.lineages = {}
+        self.orders = {}
+
         self.program = ""
+
+        self.entrez = Entrez
+        self.entrez.email = EMAIL
+        self.entrez.api_key = API_KEY
     
     def check_installed(self) -> bool:
         """
@@ -125,6 +138,26 @@ class Tree:
         Run IQ-TREE on the input alignment.
         """
 
+        # Create a thread to grab the phylogenies of each sequence
+        t = Thread(target=self._get_phylogenies)
+        t.start()
+
+        # Show a progress bar
+        pbar = tqdm(bar_format='[PHYLOGENIES] - Time elapsed:\t{elapsed}',)
+
+        # Update the progress bar
+        while t.is_alive():
+            pbar.update(1)
+            sleep(1)
+        
+        # Close the progress bar
+        pbar.close()
+        t.join()
+
+        # Display the pie chart
+        self._display_pie_chart()
+
+        # Create a thread to run IQ-TREE
         t = Thread(target=self._run_iqtree)
         t.start()
 
@@ -152,6 +185,88 @@ class Tree:
         # Display the tree
         self._display_tree()
 
+    def _get_phylogenies(self) -> dict:
+        """
+        Get the phylogenies of the sequences in the input alignment.
+        """
+
+        # Open the input alignment
+        with open(self.input, 'r') as f:
+            lines = f.readlines()
+        
+        # Remove non-header lines
+        headers = [line for line in lines if line[0] == '>']
+
+        # Grab the accessions for each entry
+        accessions = [header.split(' ')[0][1:] for header in headers]
+
+        # Request NCBI for the records
+        records = self.entrez.efetch(db='nucleotide', id=accessions, 
+                                     retmode='xml')
+        self._parse_records(records)
+
+        # Count the number of species that fall under each Order
+        for accession in self.lineages:
+            # Grab the lineage
+            taxonomies = self.lineages[accession]
+
+            # Request NCBI for the taxonomy record
+            taxonomy_ids = []
+            for taxonomy in taxonomies[4:]:
+                record = self.entrez.esearch(db='taxonomy', term=taxonomy)
+                record = Entrez.read(record)
+                # Grab the taxonomy ID
+                taxonomy_id = record['IdList'][0]
+                taxonomy_ids.append(taxonomy_id)
+            
+            # Grab the taxonomy records
+            records = self.entrez.efetch(db='taxonomy', id=taxonomy_ids,
+                                            retmode='xml')
+            records = Entrez.read(records)
+
+            # Find which record is the Order
+            for record in records:
+                if record['Rank'] == 'order':
+                    # Grab the Order
+                    order = record['ScientificName']
+                    # Add the Order to the dictionary
+                    if order in self.orders:
+                        self.orders[order] += 1
+                    else:
+                        self.orders[order] = 1
+                    break
+
+            sleep(0.25)
+
+        # Sort the dictionary by the number of species
+        self.orders = dict(sorted(self.orders.items(), key=lambda item: item[1], reverse=True))
+    
+    def _display_pie_chart(self):
+        """
+        Display the pie chart of the phylogeny distribution.
+        """
+        # Create a pie chart of the Orders
+        plt.figure(figsize=(10, 10))
+        plt.pie(self.orders.values(), labels=self.orders.keys(), autopct='%1.1f%%')
+        plt.title('Orders of the Species in the Alignment')
+        plt.savefig('orders.png')
+
+    def _parse_records(self, records: str) -> None:
+        """
+        Parse the records returned by NCBI.
+        """
+        # Parse the records
+        records = Entrez.read(records)
+
+        # Grab the lineages for each record
+        for record in records:
+            # Grab the accession
+            accession = record['GBSeq_accession-version']
+            # Grab the lineage
+            lineage = record['GBSeq_taxonomy'].split('; ')
+            # Add the lineage to the dictionary
+            self.lineages[accession] = lineage
+
     def _run_iqtree(self):
         """
         Helper function to run IQ-TREE on a separate thread.
@@ -167,3 +282,14 @@ class Tree:
         tree = Phylo.read(f'{self.input}.treefile', 'newick')
         Phylo.draw(tree)
 
+
+
+if __name__ == '__main__':
+    entrez = Entrez
+    entrez.email = EMAIL
+    entrez.api_key = API_KEY
+
+    records = entrez.efetch(db='taxonomy', id='2', retmode='xml')
+    records = Entrez.read(records)
+
+    tree = Tree()
