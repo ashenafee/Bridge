@@ -288,8 +288,9 @@ class Tree:
         plt.pie(self.ranks.values(), labels=self.ranks.keys(), autopct='%1.1f%%')
         plt.title(f'{self.rank.capitalize()} Distribution')
 
-        filename = f'{self.rank}-\
-            {datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}.png'
+
+        date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        filename = f'{self.rank}-{date}.png'
 
         plt.savefig(filename)
 
