@@ -228,7 +228,7 @@ class Tree:
 
             # Find which record is the specified rank
             for record in records:
-                if record['Rank'] == self.filter.lower():
+                if record['Rank'] == self.rank.lower():
                     # Grab the rank
                     rank = record['ScientificName']
                     # Add the Order to the dictionary
