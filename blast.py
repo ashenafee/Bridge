@@ -66,21 +66,8 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
     pbar.close()
     t.join()
 
-    # Download the BLAST results on a separate thread
-    t = Thread(target=_download_blast_results, args=(out,))
-    t.start()
-
-    # Show a progress bar
-    pbar = tqdm(bar_format='[DOWNLOAD] - Time elapsed:\t{elapsed}',)
-
-    # Update the progress bar
-    while t.is_alive():
-        pbar.update(1)
-        sleep(1)
-    
-    # Close the progress bar
-    pbar.close()
-    t.join()
+    # Download the BLAST results
+    _download_blast_results(out)
 
 
 def _download_blast_results(out):
@@ -96,7 +83,7 @@ def _download_blast_results(out):
 
     # Use Biopython's Entrez module to download the sequences
     gb = GenBankDDL(records=accessions)
-    gb.download(f'{out}.fasta')
+    gb.download(f'{out}')
     
 
 
