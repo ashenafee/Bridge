@@ -9,6 +9,7 @@
 
 import os
 import platform
+import subprocess
 import sys
 from time import sleep
 from Bio.Align.Applications import MuscleCommandline
@@ -62,7 +63,71 @@ class Muscle:
             # Download the Mac executable
             # Check if the Mac is Apple Silicon or Intel
             if platform.machine() == 'arm64':
-                exe = 'https://github.com/rcedgar/muscle/releases/download/5.1.0/muscle5.1.macos_arm64'
+
+                # https://github.com/rcedgar/muscle/pull/47
+                # TODO: Add the Apple Silicon executable
+                # Currently, the executable must be built from source and even
+                # then requires some libraries to be installed manually.
+
+                # Clone the MUSCLE repository
+                subprocess.run(['git', 'clone', '-b', 'dev', 'https://github.com/blake-riley/muscle.git'])
+
+                # Install the dependencies
+                subprocess.run(['brew', 'install', 'gcc'])
+                subprocess.run(['brew', 'install', 'libomp'])
+
+                # Change to the MUSCLE directory
+                os.chdir('muscle/src')
+
+                # Get libomp directory
+                libomp_dir = subprocess.run(['brew', '--prefix', 'libomp'], capture_output=True).stdout.decode('utf-8').strip()
+
+                # Change the header import in myutils.h
+                with open('./myutils.h', 'r') as f:
+                    lines = f.readlines()
+                
+                with open('./myutils.h', 'w') as f:
+                    for line in lines:
+                        if line.startswith('#include <omp.h>'):
+                            f.write(f'#include "{libomp_dir}/include/omp.h"\n')
+                        else:
+                            f.write(line)
+                
+                # Change the header import in locallock.h
+                with open('./locallock.h', 'r') as f:
+                    lines = f.readlines()
+                
+                with open('./locallock.h', 'w') as f:
+                    for line in lines:
+                        if line.startswith('#include <omp.h>'):
+                            f.write(f'#include "{libomp_dir}/include/omp.h"\n')
+                        else:
+                            f.write(line)
+                
+                # Build MUSCLE
+                subprocess.run(['make'], 
+                               env={'CXXFLAGS': f'-I{libomp_dir}/include', 
+                                    'LIBS': f'{libomp_dir}/lib/libomp.dylib'})
+
+                # Move the executable to the current directory
+                subprocess.run(['mv', './Darwin/muscle', '../muscle-1'])
+                os.chdir('..')
+                subprocess.run(['mv', './muscle-1', '../muscle-1'])
+
+                # Change back to the original directory
+                os.chdir('..')
+
+                # Remove the MUSCLE repository
+                subprocess.run(['rm', '-rf', 'muscle'])
+
+                # Rename the executable
+                os.rename('./muscle-1', './muscle')
+
+                # Make the file executable
+                os.chmod('muscle', 0o755)
+
+                return True
+
             elif platform.machine() == 'x86_64':
                 exe = 'https://github.com/rcedgar/muscle/releases/download/5.1.0/muscle5.1.macos_intel64'
         elif sys.platform == 'linux':
@@ -166,9 +231,6 @@ if __name__ == '__main__':
             sys.exit(1)
     
     muscle.align()
-
-    pass
-
 
 
 
