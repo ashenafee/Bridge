@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Check if virtualenv is installed
+if ! [ -x "$(command -v virtualenv)" ]; then
+    pip install virtualenv
+fi
+
 # Set up the environment
 if [ ! -d venv ]; then
     virtualenv venv
@@ -13,3 +18,19 @@ pip install -r requirements.txt
 
 # Run the initial setup
 python bridge.py --initial_setup
+
+# Make sure "bridge" is executable
+chmod +x bridge
+
+# Add "bridge" to the user's PATH based on their favorite shell
+# If .bashrc exists, add the line to it
+if [ -f ~/.bashrc ]; then
+    echo "export \"PATH=\$PATH:$(pwd)\"" >> ~/.bashrc
+fi
+
+# If .zshrc exists, add the line to it
+if [ -f ~/.zshrc ]; then
+    echo "export \"PATH=\$PATH:$(pwd)\"" >> ~/.zshrc
+fi
+
+
