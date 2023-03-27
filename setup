@@ -1,13 +1,28 @@
 #!/bin/bash
 
-# Check if virtualenv is installed
-if ! [ -x "$(command -v virtualenv)" ]; then
-    pip install virtualenv
+# Check if arguments were passed
+if [ $# -gt 0 ]; then
+    # Set the first argument as the path to the Python executable
+    python_path=$1
+else
+    # Set the path to the Python executable to "python3"
+    python_path="python3"
 fi
 
-# Set up the environment
+
+# Check if the Python version is 3.10 or higher
+if [ "$($python_path -c 'import sys; print(sys.version_info[0])')" -lt 3 ] || [ "$($python_path -c 'import sys; print(sys.version_info[1])')" -lt 10 ]; then
+    echo "Python 3.10 or higher is required to run this program."
+
+    # Print the current Python version
+    echo "Current Python version: $($python_path -c 'import sys; print(sys.version_info[0])').$($python_path -c 'import sys; print(sys.version_info[1])')"
+    exit 1
+fi
+
+# Check if a virtual environment exists
 if [ ! -d venv ]; then
-    virtualenv venv
+    # Create a virtual environment
+    $python_path -m venv venv
 fi
 
 # Activate the environment
