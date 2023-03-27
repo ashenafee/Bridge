@@ -1,5 +1,12 @@
 import tkinter as tk
 from tkinter import filedialog as fd
+from tkinter import messagebox
+
+from genbank import GenBank
+from ensembl import Ensembl
+from threading import Thread
+
+from tkinter import ttk
 
 
 class App(tk.Tk):
@@ -87,6 +94,12 @@ class App(tk.Tk):
         self.species_input.insert(tk.END, "Species")
         self.species_input.bind("<FocusIn>", self.text_field_focused)
         self.species_input.grid(row=1, column=0)
+
+        self.output_name_input = tk.Text(self.input_fields, height=1, width=30,
+                                            foreground="grey", name="output_name_input")
+        self.output_name_input.insert(tk.END, "Output File Name")
+        self.output_name_input.bind("<FocusIn>", self.text_field_focused)
+        self.output_name_input.grid(row=2, column=0)
     
     def _setup_blast_input_fields(self, update=False):
         """
@@ -442,9 +455,9 @@ class App(tk.Tk):
         self.template_length_input.insert(tk.END, "e.g., 21")
         self.template_length_input.config(foreground="grey")
 
-        self.templtate_type_input.delete("1.0", tk.END)
-        self.templtate_type_input.insert(tk.END, "e.g., coding")
-        self.templtate_type_input.config(foreground="grey")
+        self.template_type_input.delete("1.0", tk.END)
+        self.template_type_input.insert(tk.END, "e.g., coding")
+        self.template_type_input.config(foreground="grey")
     
     def run_button_clicked(self, event):
         """
@@ -452,11 +465,102 @@ class App(tk.Tk):
         """
         mode = self.mode_var.get()
         if mode == "Search":
-            print("Search")
+            self.search_button_clicked(event)
         elif mode == "BLAST":
             print("BLAST")
         elif mode == "Tree":
             print("Tree")
+
+    # Search Events
+    def search_button_clicked(self, event):
+        """
+        Search for genes in the database.
+        """
+        gene = self.gene_input.get("1.0", tk.END).strip()
+        species = self.species_input.get("1.0", tk.END).strip()
+        output = self.output_name_input.get("1.0", tk.END).strip()
+
+        if gene == "Gene(s)" or species == "Species" or \
+            output == "Output File Name":
+            messagebox.showerror("Error", "Please enter a gene, species, \
+                                 and the output name.")
+            return
+        
+        # Parse the gene input
+        gene = gene.split(",")
+
+        # Parse the species input
+        species = species.split(",")
+
+        # Check if it's a GenBank query or an Ensembl query
+        if self.search_db_var.get() == "GenBank":
+            # Create the GenBank object on a separate thread
+            gb = GenBankThread(gene, species, output)
+            gb.start()
+
+            # Create the progress bar
+            self.progress_bar = ttk.Progressbar(self, orient="horizontal",
+                                                length=200, mode="determinate")
+            self.progress_bar.pack()
+            self.progress_bar.start()
+
+            # Once the GenBank object has finished, update the progress bar
+            while gb.is_alive():
+                self.progress_bar.update()
+
+            # Once the GenBank object has finished, update the progress bar
+            self.progress_bar.stop()
+            self.progress_bar.destroy()
+        
+        elif self.search_db_var.get() == "Ensembl":
+            # Create the Ensembl object on a separate thread
+            ensembl = EnsemblThread(gene, species, output)
+            ensembl.start()
+
+            # Create the progress bar
+            self.progress_bar = ttk.Progressbar(self, orient="horizontal",
+                                                length=200, mode="determinate")
+            self.progress_bar.pack()
+            self.progress_bar.start()
+
+            # Once the Ensembl object has finished, update the progress bar
+            while ensembl.is_alive():
+                self.progress_bar.update()
+
+            # Once the Ensembl object has finished, update the progress bar
+            self.progress_bar.stop()
+            self.progress_bar.destroy()
+
+
+class GenBankThread(Thread):
+    def __init__(self, gene, species, output):
+        super().__init__()
+        self.gene = gene
+        self.species = species
+        self.output = output
+        self.data = None
+    
+    def run(self):
+        gb = GenBank(self.gene, self.species)
+        self.data = gb.search()
+        gb.summarize(self.output, self.data)
+        gb.download(self.output)
+
+
+class EnsemblThread(Thread):
+    def __init__(self, gene, species, output):
+        super().__init__()
+        self.gene = gene
+        self.species = species
+        self.output = output
+        self.data = None
+    
+    def run(self):
+        ensembl = Ensembl(self.gene, self.species)
+        self.data = ensembl.search()
+        ensembl.summarize(self.data, self.output)
+        ensembl.download(self.output)
+
 
 if __name__ == "__main__":
     app = App()
