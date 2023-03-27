@@ -467,7 +467,7 @@ class App(tk.Tk):
         if mode == "Search":
             self.search_button_clicked(event)
         elif mode == "BLAST":
-            print("BLAST")
+            self.blast_button_clicked(event)
         elif mode == "Tree":
             print("Tree")
 
@@ -531,6 +531,24 @@ class App(tk.Tk):
             self.progress_bar.stop()
             self.progress_bar.destroy()
 
+    # BLAST Events
+    def blast_button_clicked(self, event):
+        """
+        Handle the event where the user wants to run a BLAST search.
+        """
+
+        # Get the user's options
+        blast_db = self.blast_db_var.get()
+        output_name = self.blast_output_input.get("1.0", tk.END).strip()
+        max_targets = self.max_targets_input.get("1.0", tk.END).strip()
+        evalue = self.evalue_input.get("1.0", tk.END).strip()
+        word_size = self.word_size_input.get("1.0", tk.END).strip()
+        gap_open = self.gap_open_input.get("1.0", tk.END).strip()
+        gap_extend = self.gap_extend_input.get("1.0", tk.END).strip()
+        template_length = self.template_length_input.get("1.0", tk.END).strip()
+        template_type = self.template_type_input.get("1.0", tk.END).strip()
+
+        # TODO: Check if the user has entered all the required options
 
 class GenBankThread(Thread):
     def __init__(self, gene, species, output):
