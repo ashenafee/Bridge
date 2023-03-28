@@ -66,6 +66,9 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
     pbar.close()
     t.join()
 
+    if params['out']:
+        out = params['out']
+
     # Download the BLAST results
     _download_blast_results(out)
 
@@ -107,6 +110,8 @@ def _setup_blast_params(executable, params: dict) -> NcbiblastnCommandline:
         try:
             params[x] = int(params[x])
         except ValueError:
+            pass
+        except TypeError:
             pass
 
     for x, y in params.items():

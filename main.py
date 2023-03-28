@@ -1,3 +1,4 @@
+import shutil
 import tkinter as tk
 from tkinter import filedialog as fd
 from tkinter import messagebox
@@ -5,6 +6,7 @@ from tkinter import messagebox
 from genbank import GenBank
 from ensembl import Ensembl
 from threading import Thread
+from blast import blastn, blast_by_species_and_symbol
 
 from tkinter import ttk
 
@@ -548,7 +550,86 @@ class App(tk.Tk):
         template_length = self.template_length_input.get("1.0", tk.END).strip()
         template_type = self.template_type_input.get("1.0", tk.END).strip()
 
-        # TODO: Check if the user has entered all the required options
+        # Create a dictionary of the parameters
+        params = {
+            "db": blast_db,
+            "out": output_name,
+            "max_target_seqs": max_targets,
+            "evalue": evalue,
+            "word_size": word_size,
+            "gapopen": gap_open,
+            "gapextend": gap_extend,
+            "template_length": template_length,
+            "template_type": template_type
+        }
+
+        for key, value in params.items():
+            if value.startswith("e.g."):
+                params[key] = None
+
+        # If the user is BLASTing by "Search", then get the gene and species
+        if self.input_type_var.get() == "Search":
+            gene = self.gene_input.get("1.0", tk.END).strip()
+            species = self.species_input.get("1.0", tk.END).strip()
+
+            # Parse the gene input
+            gene = gene.split(",")
+            # Parse the species input
+            species = species.split(",")
+
+            # Create the Blast object on a separate thread
+            blast = BlastThread(gene, species, None, output_name, params)
+            blast.start()
+
+            # Create the progress bar
+            self.progress_bar = ttk.Progressbar(self, orient="horizontal",
+                                                length=200, mode="indeterminate")
+            self.progress_bar.pack()
+            self.progress_bar.start()
+
+            # Once the Blast object has finished, update the progress bar
+            while blast.is_alive():
+                self.progress_bar.update()
+            self.progress_bar.stop()
+        
+        # If the user is BLASTing by "File", then get the file path
+        elif self.input_type_var.get() == "File":
+            path = self.file_path
+
+
+class BlastThread(Thread):
+    def __init__(self, gene, species, input, output, params):
+        super().__init__()
+        self.gene = gene
+        self.species = species
+
+        self.input = input
+
+        if output.startswith("e.g.,"):
+            self.output = "blast_output.txt"
+        else:
+            self.output = output
+        
+        self.params = params
+    
+    def run(self):
+
+        if self.gene is not None and self.species is not None:
+            gb = GenBank(self.gene, self.species)
+            data = gb.search()
+
+            # Download the sequence
+            gb.download(filename="btemp", records=data)
+
+            # Run the BLAST search
+            blastn("./btemp/btemp-rna.fasta", params=self.params)
+
+            # Remove the temporary folder
+            shutil.rmtree("./btemp")
+            # blast_by_species_and_symbol(self.gene, self.species, output=self.output)
+        else:
+            blastn(self.input)
+
 
 class GenBankThread(Thread):
     def __init__(self, gene, species, output):
