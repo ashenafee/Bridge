@@ -11,6 +11,7 @@ import os
 import platform
 import subprocess
 import sys
+import tarfile
 from time import sleep
 from Bio.Align.Applications import MuscleCommandline
 from shutil import which
@@ -55,107 +56,125 @@ class Muscle:
         """
         Download and install MUSCLE on the user's system.
         """
+        # TODO: Refactor installation
+
         # Check the user's OS
         if sys.platform == 'win32':
-            # Download the Windows executable
-            exe = 'https://github.com/rcedgar/muscle/releases/download/5.1.0/muscle5.1.win64.exe'
+            return self._install_windows()
+
         elif sys.platform == 'darwin':
-            # Download the Mac executable
-            # Check if the Mac is Apple Silicon or Intel
-            if platform.machine() == 'arm64':
 
-                # https://github.com/rcedgar/muscle/pull/47
-                # TODO: Add the Apple Silicon executable
-                # Currently, the executable must be built from source and even
-                # then requires some libraries to be installed manually.
-
-                # Clone the MUSCLE repository
-                subprocess.run(['git', 'clone', '-b', 'dev', 'https://github.com/blake-riley/muscle.git'])
-
-                # Install the dependencies
-                subprocess.run(['brew', 'install', 'gcc'])
-                subprocess.run(['brew', 'install', 'libomp'])
-
-                # Change to the MUSCLE directory
-                os.chdir('muscle/src')
-
-                # Get libomp directory
-                libomp_dir = subprocess.run(['brew', '--prefix', 'libomp'], capture_output=True).stdout.decode('utf-8').strip()
-
-                # Change the header import in myutils.h
-                with open('./myutils.h', 'r') as f:
-                    lines = f.readlines()
-                
-                with open('./myutils.h', 'w') as f:
-                    for line in lines:
-                        if line.startswith('#include <omp.h>'):
-                            f.write(f'#include "{libomp_dir}/include/omp.h"\n')
-                        else:
-                            f.write(line)
-                
-                # Change the header import in locallock.h
-                with open('./locallock.h', 'r') as f:
-                    lines = f.readlines()
-                
-                with open('./locallock.h', 'w') as f:
-                    for line in lines:
-                        if line.startswith('#include <omp.h>'):
-                            f.write(f'#include "{libomp_dir}/include/omp.h"\n')
-                        else:
-                            f.write(line)
-                
-                # Build MUSCLE
-                subprocess.run(['make'], 
-                               env={'CXXFLAGS': f'-I{libomp_dir}/include', 
-                                    'LIBS': f'{libomp_dir}/lib/libomp.dylib'})
-
-                # Move the executable to the current directory
-                subprocess.run(['mv', './Darwin/muscle', '../muscle-1'])
-                os.chdir('..')
-                subprocess.run(['mv', './muscle-1', '../muscle-1'])
-
-                # Change back to the original directory
-                os.chdir('..')
-
-                # Remove the MUSCLE repository
-                subprocess.run(['rm', '-rf', 'muscle'])
-
-                # Rename the executable
-                os.rename('./muscle-1', './muscle')
-
-                # Make the file executable
-                os.chmod('muscle', 0o755)
-
-                return True
-
-            elif platform.machine() == 'x86_64':
-                exe = 'https://github.com/rcedgar/muscle/releases/download/5.1.0/muscle5.1.macos_intel64'
-        elif sys.platform == 'linux':
-            # Download the Linux executable
-            exe = 'https://github.com/rcedgar/muscle/releases/download/5.1.0/muscle5.1.linux_intel64'
+            return self._install_macos()
         
-        # Download the executable
+        elif sys.platform == 'linux':
+
+            return self._install_linux()
+        
+        return False
+
+    def _install_windows(self):
+        """
+        Install MUSCLE on Windows. Returns True if successful, False otherwise.
+        """
+        # Check if MUSCLE is already installed
+        if os.path.exists('muscle.exe'):
+            return True
+
+        # Download the Windows executable
+        exe = 'https://drive5.com/muscle/downloads3.8.31/muscle3.8.31_i86win32.exe'
+
         r = requests.get(exe, allow_redirects=True)
 
         # Check if the download was successful
         if r.status_code == 200:
-            # Download the file using tqdm
-            with open('muscle', 'wb') as f:
+            with open('muscle.exe', 'wb') as f:
                 for chunk in tqdm(r.iter_content(chunk_size=1024), 
                                   total=len(r.content)/1024, unit='KB', 
                                   unit_scale=True, desc='Downloading MUSCLE'):
                     if chunk:
                         f.write(chunk)
             
-            # Make the file executable
-            os.chmod('muscle', 0o755)
+            self.program = os.path.abspath('muscle.exe')
+
+            return True
+
+        return False
+
+    def _install_macos(self):
+        """
+        Install MUSCLE on macOS. Returns True if successful, False otherwise.
+        The executable installed is for Intel processors as MUSCLE v3.8.31
+        does not have an ARM executable.
+        """
+
+        if os.path.exists('muscle'):
+            return True
+        
+        exe = 'https://drive5.com/muscle/downloads3.8.31/muscle3.8.31_i86darwin64.tar.gz'
+
+        # Download the macOS (Intel) executable
+        r = requests.get(exe, allow_redirects=True)
+
+        # Check if the download was successful
+        if r.status_code == 200:
+            # Download the file using tqdm
+            with open('muscle.tar.gz', 'wb') as f:
+                for chunk in tqdm(r.iter_content(chunk_size=1024), 
+                                total=len(r.content)/1024, unit='KB', 
+                                unit_scale=True, desc='Downloading MUSCLE'):
+                    if chunk:
+                        f.write(chunk)
             
+            # Extract the tarball
+            with tarfile.open('muscle.tar.gz', 'r:gz') as tar:
+                tar.extractall()
+            
+            # Remove the tarball
+            os.remove('muscle.tar.gz')
+
+            self.program = os.path.abspath('muscle')
+
+            return True
+        
+        return False
+
+    def _install_linux(self):
+        """
+        Install MUSCLE on Linux. Returns True if successful, False otherwise.
+        """
+
+        if os.path.exists('muscle'):
+            return True
+
+        # Download the Linux executable
+        exe = 'https://drive5.com/muscle/downloads3.8.31/muscle3.8.31_i86linux64.tar.gz'
+
+        # Download the executable
+        r = requests.get(exe, allow_redirects=True)
+
+        # Check if the download was successful
+        if r.status_code == 200:
+            # Download the file using tqdm
+            with open('muscle.tar.gz', 'wb') as f:
+                for chunk in tqdm(r.iter_content(chunk_size=1024), 
+                                  total=len(r.content)/1024, unit='KB', 
+                                  unit_scale=True, desc='Downloading MUSCLE'):
+                    if chunk:
+                        f.write(chunk)
+            
+            # Extract the tarball
+            with tarfile.open('muscle.tar.gz', 'r:gz') as tar:
+                tar.extractall()
+            
+            # Remove the tarball
+            os.remove('muscle.tar.gz')
+
             self.program = os.path.abspath('muscle')
 
             return True
 
         return False
-        
+
     def align(self):
         """
         Run MUSCLE on a given FASTA file input.
