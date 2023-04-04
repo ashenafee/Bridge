@@ -56,8 +56,7 @@ class Muscle:
         """
         Download and install MUSCLE on the user's system.
         """
-        # TODO: Refactor installation
-
+        
         # Check the user's OS
         if sys.platform == 'win32':
             return self._install_windows()
