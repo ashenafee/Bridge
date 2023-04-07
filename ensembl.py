@@ -1,6 +1,6 @@
 import json
-import time
 import re
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -11,10 +11,10 @@ class EMBLFile:
     Fetch information on an accession file containing values from Ensembl.
     """
 
-    def __init__(self, filename: str) -> None:
+    def __init__(self, filename: str):
         """
         Initialize a new EMBLFile class.
-        :param filename:
+        :param filename: The file to use.
         """
         self.filename = filename
 
@@ -25,7 +25,6 @@ class EMBLFile:
         """
         Fetch the latest version of the Ensembl species table from the database.
         """
-        # https://www.ensembl.org/info/genome/stable_ids/prefixes.html
         url = 'https://www.ensembl.org/info/genome/stable_ids/prefixes.html'
         r = requests.get(url)
 
@@ -40,13 +39,14 @@ class EMBLFile:
             if len(temp) != 0:
                 species_table[temp[0]] = temp[1]
 
+        # Save the table.
         self._species_table = species_table
 
     def get_information(self) -> dict:
         """
         Return information on each accession provided in self.filename.
-        :return:
         """
+        # Read the file.
         with open(self.filename, 'r') as f:
             accessions = f.read().splitlines()
 
@@ -85,11 +85,11 @@ class Ensembl:
     SEQUENCE2 = "http://rest.ensembl.org/sequence/region/{SPECIES}"
     SEQUENCE = "http://rest.ensembl.org/sequence/id"
 
-    def __init__(self, genes=None, species=None) -> None:
+    def __init__(self, genes=None, species=None):
         """
         Initialize a new Ensembl object.
-        :param genes:
-        :param species:
+        :param genes: A list of genes to search for.
+        :param species: A list of species to search for.
         """
         if genes is not None and species is not None:
             self.genes = genes
@@ -104,7 +104,6 @@ class Ensembl:
     def search(self) -> list:
         """
         Search for the given genes in the given species.
-        :return:
         """
         raw_results = self._search()
         results = self._fetch(raw_results)
@@ -115,9 +114,8 @@ class Ensembl:
         Search for the sequences given by the alignment file in the Ensembl
         database. If seq is True, return the sequences. Otherwise, return the
         descriptions and metadata of these accessions.
-        :param alignment:
-        :param seq:
-        :return:
+        :param alignment: The alignment file to use.
+        :param seq: Whether to return the sequences.
         """
         if seq:
             self._acc_seq = True
@@ -127,6 +125,8 @@ class Ensembl:
             lines = f.readlines()
         self.accessions = [line.strip()[1:] for line in lines if
                            line.startswith(">")]
+
+        # Search for the accessions
         results = self._search()
 
         # Re-annotate the alignment file
@@ -145,15 +145,16 @@ class Ensembl:
     def _search(self) -> list:
         """
         Search for the given genes in the given species.
-        :return:
         """
         results = []
 
+        # Check if a species is given.
         if self.species:
             for species in self.species:
                 for gene in self.genes:
                     # Fetch the record from Ensembl.
-                    record = self.LOOKUP.format(SPECIES=species.replace(" ", "_"),
+                    record = self.LOOKUP.format(SPECIES=species.replace(" ",
+                                                                        "_"),
                                                 GENE=gene)
                     r = requests.get(record)
                     if r.status_code == 200:
@@ -161,10 +162,11 @@ class Ensembl:
                     else:
                         print("Error finding the gene.")
         else:
-
+            # Split the accessions into groups of 100.
             accessions = [self.accessions[i:i + 100]
                           for i in range(0, len(self.accessions), 100)]
 
+            # Search for the accessions.
             for accession in accessions:
                 headers = {
                     "Content-Type": "application/json",
@@ -179,8 +181,6 @@ class Ensembl:
 
                 if r.status_code == 200:
                     results.append(r.json())
-                    # TODO: Message where if certain features aren't found,
-                    # display that to the user.
                 else:
                     print("Error finding the gene(s).")
                 time.sleep(1)
@@ -190,12 +190,12 @@ class Ensembl:
 
         return results
 
-    def _get_acc_seqs(self, results) -> None:
+    def _get_acc_seqs(self, results: list) -> None:
         """
         Get the sequences for the accessions.
-        :param results:
-        :return:
+        :param results: The results to add the sequences to.
         """
+        # Split the accessions into groups of 50.
         accessions_seq = [self.accessions[i:i + 50]
                           for i in range(0, len(self.accessions), 50)]
         for accession in accessions_seq:
@@ -209,16 +209,14 @@ class Ensembl:
                               data=json.dumps(data))
 
             if r.status_code == 200:
-                # Go through the results and add them to the
-                # respective entry.
+                # Go through the results and add them to the respective entry.
                 for result in r.json():
                     results[0][result["id"]]["sequence"] = result["seq"]
 
     def _fetch(self, raw: list) -> list:
         """
         Fetch the records for the raw results.
-        :param raw:
-        :return:
+        :param raw: The raw results.
         """
         results = []
         for record in raw:
@@ -229,8 +227,7 @@ class Ensembl:
     def _parse(self, record: dict) -> dict:
         """
         Parse the record.
-        :param record:
-        :return:
+        :param record: The record to parse.
         """
         result = {
             "id": record["canonical_transcript"],
@@ -243,7 +240,8 @@ class Ensembl:
     def download(self, filename: str, records=None) -> None:
         """
         Download the fasta files.
-        :return:
+        :param filename: The filename to use.
+        :param records: The records to use.
         """
         if records is not None:
             # Create a dictionary of species to genes.
@@ -277,30 +275,30 @@ class Ensembl:
                 with open(f"{filename}-{organism}.fasta", "w") as f:
                     f.write(results)
             else:
-                # TODO: Error message
                 print("Could not download the sequences. Make sure the values "
                       "are valid Ensembl sequence IDs.")
+                exit(1)
 
-    def _species_to_genes(self, records: list) -> dict:
+    def _species_to_genes(self, results: list) -> dict:
         """
         Return a dictionary of species mapped to their genes-of-interest.
-        :param records:
-        :return:
+        :param results: The results to use.
         """
         species = {}
-        for record in records:
-            if record["species"] not in species:
-                species[record["species"]] = [(record["id"], record["description"])]
+        for result in results:
+            if result["species"] not in species:
+                species[result["species"]] = [(result["id"],
+                                               result["description"])]
             else:
-                species[record["species"]].append((record["id"], record["description"]))
+                species[result["species"]].append((result["id"],
+                                                   result["description"]))
         return species
 
     def _species_to_genes_file(self, lines: list) -> dict:
         """
         Return a dictionary of species mapped to their genes-of-interest from
         a summary file.
-        :param lines:
-        :return:
+        :param lines: The lines from the summary file to use.
         """
         species = {}
         divider = "-" * 80
@@ -318,8 +316,7 @@ class Ensembl:
     def _get_headers(self, organisms: dict) -> dict:
         """
         Get the FASTA headers for the POST request.
-        :param records:
-        :return:
+        :param organisms: The organisms the headers are for.
         """
         headers = {}
         for organism in organisms:
@@ -331,9 +328,8 @@ class Ensembl:
     def _parse_fasta(self, results: list, headers=None) -> str:
         """
         Parse the results into a single FASTA file.
-        :param results:
-        :param headers:
-        :return:
+        :param results: The results to parse.
+        :param headers: The headers to use.
         """
         fasta = ""
         if headers is not None:
@@ -355,15 +351,11 @@ class Ensembl:
     def summarize(self, results: list, filename: str) -> None:
         """
         Summarize the downloaded files.
-        :return:
+        :param results: The results to summarize.
+        :param filename: The filename to use.
         """
         # Create a dictionary of species to genes.
-        species = {}
-        for result in results:
-            if result["species"] not in species:
-                species[result["species"]] = [(result["id"], result["description"])]
-            else:
-                species[result["species"]].append((result["id"], result["description"]))
+        species = self._species_to_genes(results)
 
         # Create the summary string.
         summary = ""
@@ -376,18 +368,3 @@ class Ensembl:
 
         with open(f"{filename}-summary.txt", 'w') as f:
             f.write(summary)
-
-
-if __name__ == '__main__':
-    #ensembl = Ensembl(species=["anolis carolinensis"], genes=["TRPA1"])
-    #results = ensembl.search()
-    #ensembl.summarize(results, "test")
-    #ensembl.download('test')
-    #ensembl = Ensembl()
-    #res = ensembl.search_by_alignment('6_documents_align.fasta', True)
-
-    #with open('test.json', 'w') as f:
-    #    f.write(json.dumps(res, indent=4))
-
-    embl = EMBLFile('6_documents_align.fasta')
-    print(json.dumps(embl.get_information(), indent=4))

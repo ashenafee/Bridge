@@ -1,48 +1,16 @@
-from bs4 import BeautifulSoup
-from blast import read_blast
 import requests
+from bs4 import BeautifulSoup
 
-
-#def filter_blast(blast_file, taxid_file, out_file):
-
-
-# The genbank.py summarize script uses lineage information for each species.
-# This information (likely) comes from a dictionary fetched when getting info
-# on each gene.
-#
-# To create a filter function, one can simply loop through the results and their
-# respective lineages, and if a name in the lineage matches the filter, that
-# entire result can be added to the filtered list.
-#
-# Example: If we have results from Species A, Species B, Species C, and Species
-#          D, consider we filter for Taxonomy X. Let's say that Species A and
-#          Species D fall within Taxonomy X. Then, running the filter function
-#          would return a list with Species A and Species D. Species B and
-#          Species C would be excluded.
-
-def filter(results: list, filter: str) -> list:
-    """
-    Filter the results based off a taxonomic filter. Results for which the
-    species falls under the filter (i.e., that species is a member of that
-    taxon) will be included in the returned list. No information is modified
-    in the original results list.
-    :param results:
-    :param filter:
-    :return:
-    """
-    filtered = []
-    for result in results:
-        if filter in result['lineage']:
-            filtered.append(result)
-    return filtered
+from blast import read_blast
 
 
 def filter_summary(results: list, filter: str) -> list:
     """
-
-    :param results:
-    :param filter:
-    :return:
+    Filter the results of a summary file based on a taxonomic filter. Any
+    species that belongs to that filter will be included in the returned list.
+    The original results list is not modified.
+    :param results: A list of strings containing the results of a BLAST search.
+    :param filter: The name of the taxon to filter by.
     """
     # Loop through each line in the results and check the species lineage.
     removed = 0
@@ -55,14 +23,15 @@ def filter_summary(results: list, filter: str) -> list:
     i1 = -1
     for i in range(len(results)):
         if start:
-            if (not (results[i].startswith('\t') or 
-            results[i][0] == '-' or 
-            results[i].startswith('Lineage: '))) or (i == len(results) - 1):
+            if (not (results[i].startswith('\t') or
+                     results[i][0] == '-' or
+                     results[i].startswith('Lineage: '))) or (i == len(results) - 1):
                 i2 = i
                 entries.append((i1, i2, filter_upper in lineage))
                 start = False
 
-        if not (results[i].startswith('\t') or results[i][0] == '-' or results[i].startswith('Lineage: ')):
+        if not (results[i].startswith('\t') or results[i][0] == '-' or
+                results[i].startswith('Lineage: ')):
             start = True
             i1 = i
 
@@ -87,11 +56,9 @@ def filter_summary(results: list, filter: str) -> list:
 def filter_blast(blast_file: str, filter: str) -> list:
     """
     Filter the blast output based on a taxonomic filter.
-    :param blast_file:
-    :param filter:
-    :return:
+    :param blast_file: The path to the BLAST file.
+    :param filter: The name of the taxon to filter by.
     """
-
     # Read the results
     results = read_blast(blast_file)
 
@@ -106,6 +73,7 @@ def filter_blast(blast_file: str, filter: str) -> list:
           "db=taxonomy&id={IDS}"
     r = requests.get(url.format(IDS=",".join(ids)))
 
+    # Map the IDs to their respective lineages
     tax_map = _map_id_to_lineage(r)
 
     # Filter the results
@@ -115,7 +83,7 @@ def filter_blast(blast_file: str, filter: str) -> list:
         lineage = tax_map[taxid]
         if filter in lineage:
             filtered.append(result)
-    
+
     return filtered
 
 
@@ -123,8 +91,7 @@ def _map_id_to_lineage(r: requests.Response) -> dict:
     """
     Given the response from the NCBI taxonomy database, map the IDs to their
     respective lineages.
-    :param r:
-    :return:
+    :param r: The response from the NCBI taxonomy database.
     """
     # Parse the XML results using BeautifulSoup
     soup = BeautifulSoup(r.text, features='xml')
@@ -139,18 +106,3 @@ def _map_id_to_lineage(r: requests.Response) -> dict:
         tax_map[taxon.TaxId.text] = taxon.Lineage.text.split('; ')
 
     return tax_map
-
-
-if __name__ == '__main__':
-    # # Read in emily's summary
-    # with open('emily-summary.txt', 'r') as f:
-    #     emily = f.readlines()
-    #
-    # l = filter_summary(emily, 'Bovidae')
-    # with open('emily-filtered.txt', 'w') as f:
-    #     f.writelines(l)
-
-    # Read in the BLAST results
-    with open('blastn.out.txt', 'r') as f:
-        blast = f.readlines()
-

@@ -1,12 +1,9 @@
 import os
+import time
 
-import requests
 from Bio import Entrez
 from dotenv import load_dotenv
 from tqdm import tqdm
-import time
-import zipfile
-import shutil
 
 load_dotenv()
 
@@ -22,9 +19,11 @@ class GenBank:
     DOWNLOAD = "https://api.ncbi.nlm.nih.gov/datasets/v1/gene/" \
                "download?filename={FILE}"
 
-    def __init__(self, genes: list, species: list) -> None:
+    def __init__(self, genes: list, species: list):
         """
         Initialize a new GenBank object.
+        :param genes: A list of genes to search for.
+        :param species: A list of species to search for.
         """
         self.genes = genes
         self.species = species
@@ -36,7 +35,6 @@ class GenBank:
     def search(self) -> list:
         """
         Search for the given genes in the given species.
-        :return:
         """
         raw_results = self._search()
         results = self._fetch(raw_results)
@@ -45,9 +43,9 @@ class GenBank:
     def download(self, filename: str, records=None) -> None:
         """
         Download the fasta files.
-        :return:
+        :param filename: The name of the file to save the results to.
+        :param records: A list of records to download.
         """
-
         if filename is None:
             # Create a filename based on the genes and species.
             filename = f"{len(self.genes)}-genes-{len(self.species)}-species"
@@ -57,75 +55,39 @@ class GenBank:
         else:
             gene_ids = self._download_from_summary(filename)
 
-        data = {
-            "gene_ids": gene_ids,
-            "include_annotation_type": ["FASTA_GENE",
-                                        "FASTA_RNA",
-                                        "FASTA_PROTEIN"]
-        }
-        r = requests.post(self.DOWNLOAD.format(FILE=filename), json=data)
-        if r.status_code == 200:
-            with open(f"{filename}.zip", 'wb') as f:
-                f.write(r.content)
-            
-            # Get absolute path to the file.
-            path = os.path.abspath(f"{filename}.zip")
+        # Use Biopython EFetch to download the fasta files for the genes.
+        with self.entrez.efetch(db="gene", id=gene_ids, rettype="xml",
+                                retmode="xml") as handle:
+            # Grab the mRNA products
+            mrnas = []
+            records = self.entrez.parse(handle)
+            for record in records:
 
-            # Create temporary directory.
-            os.mkdir("./temp")
+                egene = record["Entrezgene_locus"]
 
-            # Unzip the file.
-            with zipfile.ZipFile(path, 'r') as zip_ref:
-                zip_ref.extractall("./temp")
+                for accession in egene:
+                    for entry in accession["Gene-commentary_products"]:
 
-            # Delete the zip file.
-            os.remove(path)
+                        val = entry["Gene-commentary_type"].attributes["value"]
+                        if val == "mRNA":
+                            mrnas.append(entry["Gene-commentary_accession"])
 
-            # Get current working directory.
-            cwd = os.getcwd()
-            dl_data = cwd + "/temp/ncbi_dataset/data"
+        accessions = list(set(mrnas))
 
-            # Create the data directory if it doesn't exist.
-            if os.path.exists(f"{cwd}/{filename}") is False:
-                os.mkdir(f"./{filename}")
+        handle.close()
 
-            # Move the files to the data directory.
-            save = cwd + f"/{filename}/{filename}"
-            os.rename(f"{dl_data}/gene.fna", f"{save}-gene.fasta")
-            os.rename(f"{dl_data}/rna.fna", f"{save}-rna.fasta")
-            os.rename(f"{dl_data}/protein.faa", f"{save}-protein.fasta")
+        # Download the sequences
+        with self.entrez.efetch(db="nuccore", id=accessions, rettype="fasta",
+                                retmode="text") as handle:
 
-            # Remove any non "NM" entries from rna.fasta
-            with open(f"{save}-rna.fasta", "r") as f:
-                lines = f.readlines()
-            
-            transcript = ""
-            begin = False
-            for line in lines:
-                if line[1] == 'N' and line[2] == 'M':
-                    begin = True
-                else:
-                    if line[0] == ">":
-                        begin = False
-                
-                if begin:
-                    transcript += line
-            
-            with open(f"{save}-rna.fasta", "w") as f:
-                f.write(transcript)
-
-
-            # Delete the directory.
-            shutil.rmtree("./temp")
-
-        else:
-            print(r.status_code)
+            # Write the sequences to a file.
+            with open(f"{filename}.fasta", "w") as f:
+                f.write(handle.read())
 
     def _download_from_summary(self, filename) -> list:
         """
         Parse the gene IDs from the summary file.
-        :param filename:
-        :return:
+        :param filename: The name of the file containing results to download.
         """
         # Open the summary file.
         with open(f"{filename}-summary.txt", "r") as f:
@@ -134,18 +96,18 @@ class GenBank:
         # Parse the gene IDs from the summary.
         gene_ids = [line.split()[0].strip("()") for line in lines
                     if line[1] == "("]
-        
+
         # Move the summary file to the data directory.
         os.mkdir(f"./{filename}")
-        os.rename(f"{filename}-summary.txt", f"./{filename}/{filename}-summary.txt")
+        os.rename(f"{filename}-summary.txt",
+                  f"./{filename}/{filename}-summary.txt")
 
         return gene_ids
 
     def _download_from_records(self, records) -> list:
         """
         Parse the gene IDs from the records and return them.
-        :param records:
-        :return:
+        :param records: A list of records to parse.
         """
         gene_ids = []
         for record in records:
@@ -156,13 +118,12 @@ class GenBank:
     def summarize(self, filename: str, records: list) -> None:
         """
         Output a summary of the given GenBank records.
-        :return:
+        :param filename: The name of the file to save the results to.
+        :param records: A list of records to summarize.
         """
-
         if filename is None:
             # Create a filename based on the genes and species.
             filename = f"{len(self.genes)}-genes-{len(self.species)}-species"
-
 
         summary = ""
         by_organisms = {}
@@ -177,18 +138,20 @@ class GenBank:
             else:
                 failed.append(records[i])
 
+        # Summarize the successful records.
         summary = self._summarize_success(by_organisms, summary)
+
+        # Summarize the failed records.
         summary = self._summarize_failed(failed, summary)
 
         with open(f"{filename}-summary.txt", "w") as f:
             f.write(summary)
 
-    def _summarize_success(self, by_organisms, summary) -> str:
+    def _summarize_success(self, by_organisms: dict, summary: str) -> str:
         """
         Summarize the successful GenBank records.
-        :param by_organisms:
-        :param summary:
-        :return:
+        :param by_organisms: A dictionary of records by organism.
+        :param summary: The summary string to append to.
         """
         for organism in by_organisms:
             summary += f"{organism}\n"
@@ -200,12 +163,11 @@ class GenBank:
                 summary += "-" * 80 + "\n"
         return summary
 
-    def _summarize_failed(self, failed, summary) -> str:
+    def _summarize_failed(self, failed: list, summary: str) -> str:
         """
         Summarize the failed GenBank records.
-        :param failed:
-        :param summary:
-        :return:
+        :param failed: A list of failed records.
+        :param summary: The summary string to append to.
         """
         if len(failed) > 0:
             summary += "Failed to find the following genes:\n"
@@ -217,7 +179,6 @@ class GenBank:
     def _search(self) -> list:
         """
         Use Biopython's ESearch module to query GenBank.
-        :return:
         """
         results = []
         for species in tqdm(self.species,
@@ -228,6 +189,8 @@ class GenBank:
                                              term=f"{gene}[GENE] AND "
                                                   f"{species}[ORGN]")
                 record = self.entrez.read(handle)
+
+                # If the gene was not found, add a default value to the results.
                 if record['Count'] == '0':
                     results.append({
                         'uid': None,
@@ -246,10 +209,11 @@ class GenBank:
     def _fetch(self, raw: list) -> list:
         """
         Use Biopython's EFetch module to fetch the GenBank records.
-        :return:
+        :param raw: The raw results from the ESearch module.
         """
         results = []
 
+        # Set a cooldown to prevent being rate-limited.
         if len(raw) > 500:
             cooldown = 2
         else:
@@ -271,20 +235,23 @@ class GenBank:
     def _parse_record(self, record) -> None:
         """
         Parse the GenBank record for the desired information.
-        :return:
         """
+        # Try to get the description, if it exists.
         try:
             desc = record['Entrezgene_summary']
         except KeyError:
             desc = None
-        lineage_info = record['Entrezgene_source']['BioSource']\
-        ['BioSource_org']
+
+        lineage_info = record['Entrezgene_source']['BioSource'] \
+            ['BioSource_org']
         organism = lineage_info['Org-ref']['Org-ref_taxname']
-        lineage = lineage_info['Org-ref']['Org-ref_orgname']['OrgName']\
-        ['OrgName_lineage']
+        lineage = lineage_info['Org-ref']['Org-ref_orgname']['OrgName'] \
+            ['OrgName_lineage']
 
         gene_info = record['Entrezgene_gene']['Gene-ref']
         gene = gene_info['Gene-ref_locus']
+
+        # Try to get the name, synonyms, and gene ID, if they exist.
         try:
             name = gene_info['Gene-ref_desc']
         except KeyError:
@@ -294,8 +261,8 @@ class GenBank:
         except KeyError:
             synonyms = None
         try:
-            gid = record['Entrezgene_locus'][0]['Gene-commentary_products']\
-            [0]['Gene-commentary_accession']
+            gid = record['Entrezgene_locus'][0]['Gene-commentary_products'] \
+                [0]['Gene-commentary_accession']
         except KeyError:
             gid = None
 
@@ -318,6 +285,10 @@ class GenBankDDL:
     """
 
     def __init__(self, records: list):
+        """
+        Initialize the direct-download class.
+        :param records: A list of GenBank records.
+        """
         self.records = records
         self.entrez = Entrez
         self.entrez.email = EMAIL
@@ -325,9 +296,8 @@ class GenBankDDL:
 
     def download(self, filename: str) -> None:
         """
-        Download the GenBank records.
-        :param filename:
-        :return:
+        Download the GenBank records using Biopython's EFetch module.
+        :param filename: The name of the file to save the records to.
         """
         for record in tqdm(self.records, bar_format='{l_bar}{bar}| {n_fmt}/'
                                                     '{total_fmt} records have '
@@ -343,82 +313,3 @@ class GenBankDDL:
             time.sleep(0.20)
 
         print(f"Downloaded {len(self.records)} records to {filename}.fasta.")
-
-
-if __name__ == '__main__':
-    from argparse import ArgumentParser
-
-    title = ""
-    with open('title.txt') as f:
-        title = '\n'.join([line.strip() for line in f.readlines()])
-
-    print()
-    print(title)
-    print()
-
-    def set_emily():
-        return True
-
-    def set_short():
-        return True
-
-    parser = ArgumentParser(description="Bridge: GenBank Module")
-    parser.add_argument('-EMILY',
-                        dest='emily',
-                        action="store_const",
-                        const=True,
-                        default=False,
-                        help='Use Emily\'s dataset for debugging.')
-    parser.add_argument('-SHORT',
-                        dest='short',
-                        action="store_const",
-                        const=True,
-                        default=False,
-                        help='Use a short dataset for debugging.')
-
-    species = ["Homo sapiens"]
-    genes = ["RHO"]
-
-    args = parser.parse_args()
-
-    if args.emily:
-        with open("emily-species.txt", "r") as f:
-            species = [line.strip() for line in f.readlines()]
-            f.close()
-
-        with open("emily-genes.txt", "r") as f:
-            genes = [line.strip() for line in f.readlines()]
-            f.close()
-
-        gb = GenBank(genes, species)
-        data = gb.search()
-        gb.summarize("emily-test-2", data)
-        gb.download("emily-test-2")
-
-    if args.short:
-        with open("testfiles/short-species.txt", "r") as f:
-            species = [line.strip() for line in f.readlines()]
-            f.close()
-
-        with open("testfiles/short-genes.txt", "r") as f:
-            genes = [line.strip() for line in f.readlines()]
-            f.close()
-
-        gb = GenBank(genes, species)
-        data = gb.search()
-        gb.summarize("short-test-1", data)
-        gb.download("short-test-1")
-
-
-    # gb = GenBank(genes, species)
-    # data = gb.search()
-    # gb.summarize("homo_rho", data)
-    # gb.download("homo_rho")
-
-# TODO: A docker image, singularity package, something like pip, but these options work across platforms
-# MACSE large dataset pipeline uses singularity; good for upscaling and packaging!
-# Being able to have a tree as part of sequence selection (easier to view ANNOTATED tree instead of numbers)
-# Think of the end-goal; make it very clear! The fact that it's not implemented in anything else very well; selling point!
-
-
-# TODO: Search genes based off taxonomy instead of just species name.

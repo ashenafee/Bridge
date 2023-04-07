@@ -1,18 +1,16 @@
-import shutil
+import os
 import subprocess
+from threading import Thread
 from time import sleep
 
 from Bio import SearchIO
 from Bio.Blast.Applications import NcbiblastnCommandline
-import requests
-from bs4 import BeautifulSoup
-
-from genbank import GenBank, GenBankDDL
-from threading import Thread
 from tqdm import tqdm
 
+from genbank import GenBank, GenBankDDL
 
-def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
+
+def blastn(query, params=None, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
            ws=11, rw=2, pn=-3, go=5, ge=2, tl=18, tt='coding') -> None:
     """
     Run a blastn search on the given query.
@@ -29,39 +27,43 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
     :param ge: The gap extension cost.
     :param tl: The template length.
     :param tt: The template type.
-    :return:
     """
-    # Setup parameters    
+    # Create the BLAST command to run
     blastn_cline = NcbiblastnCommandline(query=query,
-                                        db=db,
-                                        task='dc-megablast',
-                                        remote=True,
-                                        outfmt='6 std staxid',
-                                        out=out,
-                                        max_target_seqs=ms,
-                                        evalue=ev,
-                                        word_size=ws,
-                                        reward=rw,
-                                        penalty=pn,
-                                        gapopen=go,
-                                        gapextend=ge,
-                                        template_length=tl,
-                                        template_type=tt,
-                                        )
-    blastn_cline = _setup_blast_params(blastn_cline, params)
+                                         db=db,
+                                         task='dc-megablast',
+                                         remote=True,
+                                         outfmt='6 std staxid',
+                                         out=out,
+                                         max_target_seqs=ms,
+                                         evalue=ev,
+                                         word_size=ws,
+                                         reward=rw,
+                                         penalty=pn,
+                                         gapopen=go,
+                                         gapextend=ge,
+                                         template_length=tl,
+                                         template_type=tt,
+                                         )
 
-    # Create a new thread
+    # Configure any custom parameters
+    if params:
+        blastn_cline = _setup_blast_params(blastn_cline, params)
+    else:
+        blastn_cline = _setup_blast_params(blastn_cline, {})
+
+    # Create a new thread to run the BLAST search
     t = Thread(target=_blast_thread, args=(blastn_cline,))
     t.start()
 
-    # Show a progress bar
-    pbar = tqdm(bar_format='[BLAST] - Time elapsed:\t{elapsed}',)
+    # Show an indeterminate progress bar
+    pbar = tqdm(bar_format='[BLAST] - Time elapsed:\t{elapsed}', )
 
     # Update the progress bar
     while t.is_alive():
         pbar.update(1)
         sleep(1)
-    
+
     # Close the progress bar
     pbar.close()
     t.join()
@@ -70,38 +72,38 @@ def blastn(query, params={}, db='nt', out="blastn.out.txt", ms=100, ev=0.05,
     _download_blast_results(out)
 
 
-def _download_blast_results(out):
+def _download_blast_results(out: str) -> None:
     """
     Download the BLAST results.
+    :param out: The output file.
     """
     # Open the BLAST results
     with open(out, 'r') as f:
         lines = f.readlines()
-    
+
     # Get the accessions of the results
     accessions = [line.split('\t')[1] for line in lines]
 
     # Use Biopython's Entrez module to download the sequences
     gb = GenBankDDL(records=accessions)
     gb.download(f'{out}')
-    
 
 
-def _blast_thread(blastn: NcbiblastnCommandline):
+def _blast_thread(blastn: NcbiblastnCommandline) -> None:
     """
     Thread to run the BLAST search.
-    :return:
+    :param blastn: The BLAST command to run.
     """
     subprocess.call(str(blastn), shell=True)
 
 
-def _setup_blast_params(executable, params: dict) -> NcbiblastnCommandline:
+def _setup_blast_params(executable: NcbiblastnCommandline,
+                        params: dict) -> NcbiblastnCommandline:
     """
-    Setup the BLAST parameters.
-    :param params:
-    :return:
+    Set up the BLAST parameters.
+    :param executable: The BLAST executable.
+    :param params: The parameters to use.
     """
-
     # Try to turn numbers into integers
     for x in params:
         try:
@@ -109,18 +111,19 @@ def _setup_blast_params(executable, params: dict) -> NcbiblastnCommandline:
         except ValueError:
             pass
 
+    # Set the parameters
     for x, y in params.items():
         setattr(executable, x, y)
-    
+
     return executable
 
 
-def read_blast(blast_file) -> dict:
+def read_blast(blast_file: str) -> dict:
     """
-    Read the blast file.
-    :param blast_file:
-    :return:
+    Read the blast file and parse information.
+    :param blast_file: The BLAST file.
     """
+    # Read the BLAST file
     results = SearchIO.read(blast_file, 'blast-tab', fields=['std', 'staxid'])
     results_raw = open(blast_file, 'r').readlines()
 
@@ -137,72 +140,15 @@ def read_blast(blast_file) -> dict:
     return parsed
 
 
-def filter_blast(results: dict, filter: str) -> list:
-    """
-    Filter the results of a BLAST search based off the taxonomic filter
-    supplied by the user.
-    :param results:
-    :param filter:
-    :return:
-    """
-    # TODO: Filter multiple FASTA file entry
-    # Get the IDs from the BLAST results
-    ids = [results[x]['taxid'] for x in results]
-
-    # Make sure it's only unique IDs
-    ids = list(set(ids))
-
-    # Send the request
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" \
-          "db=taxonomy&id={IDS}"
-    r = requests.get(url.format(IDS=",".join(ids)))
-
-    tax_map = _map_id_to_lineage(r)
-
-    # Filter the results
-    filtered = []
-    for result in results:
-        taxid = results[result]['taxid']
-        lineage = tax_map[taxid]
-        if filter in lineage:
-            filtered.append(result)
-
-    return filtered
-
-
-def _map_id_to_lineage(r: requests.Response) -> dict:
-    """
-    Given the response from the NCBI taxonomy database, map the IDs to their
-    respective lineages.
-    :param r:
-    :return:
-    """
-    # Parse the XML results using BeautifulSoup
-    soup = BeautifulSoup(r.text, features='xml')
-    # Remove all of 'LineageEx'
-    for x in soup.find_all('LineageEx'):
-        x.decompose()
-    # Get taxids and lineages
-    taxa = soup.findAll('Taxon')
-    # Build the map of tax ID to lineage
-    tax_map = {}
-    for taxon in taxa:
-        tax_map[taxon.TaxId.text] = taxon.Lineage.text.split('; ')
-
-    return tax_map
-
-
-def blast_by_species_and_symbol(species: list, symbol: list, 
+def blast_by_species_and_symbol(species: list, symbol: list,
                                 output: str) -> None:
     """
     Run a BLAST search by downloading the sequence for the given symbol and
     species.
-    :param species:
-    :param symbol:
-    :return:
+    :param species: The species to search for.
+    :param symbol: The symbol to search for.
+    :param output: The output file.
     """
-    # TODO: Complete this function.
-
     # Search for the symbol in the GenBank database
     gb = GenBank(symbol, species)
     data = gb.search()
@@ -211,29 +157,7 @@ def blast_by_species_and_symbol(species: list, symbol: list,
     gb.download(filename="btemp", records=data)
 
     # Run the BLAST search
-    blastn('./btemp/btemp-rna.fasta', out=output)
+    blastn('btemp.fasta', out=output)
 
-    # Delete the temporary folder
-    shutil.rmtree('./btemp')
-
-    # TODO: Download BLAST results
-
-if __name__ == "__main__":
-    # Run the BLAST search
-    blastn('homo_rho.fasta')
-
-    # Read the results
-    blast_records = read_blast("blastn.out.txt")
-    ids = [blast_records[x]['taxid'] for x in blast_records]
-    filtered = filter_blast(blast_records, "Phocidae")
-
-    # Download the filtered sequences
-    gb = GenBankDDL(records=filtered)
-    gb.download(filename="test")
-
-    # TODO: Dirty taxonomy and output taxonomy on the tree (like a snapshot)
-    # TODO: Checkbox for excluding certain data points
-    # Accession, gene name, species, family, class
-    # TODO: Figure out tree program from BLAST
-    # Figtree
-    # https://biopython.org/docs/1.76/api/Bio.Align.Applications.html#module-Bio.Align.Applications
+    # Delete the temporary FASTA file
+    os.remove('btemp.fasta')
