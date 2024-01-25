@@ -14,6 +14,7 @@ First, clone the repository to your local machine:
 
 ```sh
 git clone https://github.com/ashenafee/Bridge.git
+cd Bridge
 ```
 
 ## Step 2: Create a Virtual Environment
