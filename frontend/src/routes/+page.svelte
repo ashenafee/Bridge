@@ -16,6 +16,40 @@
 
 	const downloadButtonHandler = () => {
 		// TODO: Implement download functionality
+
+		// Set downloading to true
+		$downloading = true;
+
+		// Send a request to localhost:8000/api/download
+		fetch("http://localhost:8000/api/download", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				taxonName: $taxnomyName,
+				geneName: $geneName,
+			}),
+		})
+			.then((response) => {
+				// Check if the response is ok
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
+				}
+
+				// Return the response as a JSON object
+				return response.json();
+			})
+			.then((data) => {
+				console.log(data);
+			})
+			.catch((error) => {
+				console.error("There has been a problem with your fetch operation:", error);
+			})
+			.finally(() => {
+				// Set downloading to false
+				$downloading = false;
+			});
 	};
 </script>
 
@@ -34,7 +68,7 @@
 	</div>
 
 	<!-- Progress -->
-	{#if !$downloading}
+	{#if $downloading}
 		<div class="w-full px-2">
 			<div class="flex flex-row justify-between">
 				<p class="text-sm text-gray-500">Downloading '{($geneName || 'Unknown gene')}' for all species in '{($taxnomyName || 'Unknown taxonomy')}' which have the gene available on the NCBI.</p>
