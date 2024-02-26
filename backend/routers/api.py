@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from modules import taxon_name_to_id, fetch_gene_ids, fetch_species, download_fasta
+from modules import taxon_name_to_id, fetch_gene_ids, fetch_species, download_fasta, concatenate_fasta
 from pydantic import BaseModel
 
 
@@ -30,5 +30,8 @@ async def download(request_data: DownloadRequest):
 
     # Download the FASTA sequences for each gene.
     download_fasta(species_ids)
+
+    # Concatenate the FASTAs into one FASTA file.
+    concatenate_fasta()
 
     return {"status": "Download completed"}
