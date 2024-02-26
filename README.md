@@ -6,6 +6,10 @@
 
 An evolutionary biology analysis suite bridging sequence data to phylogenetic trees.
 
+## Extra Documentation
+
+- [App Setup](documentation/App%20Setup.md)
+
 ## About
 Bridge is a genetic analysis toolkit built using Python. It currently has support for:
 
