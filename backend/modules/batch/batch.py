@@ -72,7 +72,7 @@ def fetch_species(gene_id: List[int]) -> Dict[str, List[int]]:
                 species_dict[species] = [gene_nuc_dict]
             
             if (i + 1) % 10 == 0:
-                time.sleep(1)
+                time.sleep(1.5)
             
             pbar.update(1)
     
@@ -96,10 +96,12 @@ def fetch_fasta(nuc_id: str) -> str:
     """
     Fetch the FASTA sequence for a given gene ID and nucleotide ID using the NCBI Nucleotide API.
     """
-    url = EFETCH.format(QUERY=f"?db=nucleotide&id={nuc_id}&rettype=fasta&retmode=text&api_key={NCBI_API_KEY}")
+    url = EFETCH.format(QUERY=f"?db=nuccore&id={nuc_id}&rettype=fasta_cds_na&retmode=text&api_key={NCBI_API_KEY}")
     r = requests.get(url)
     if r.status_code != 200:
-        raise Exception("Error fetching FASTA from NCBI Nucleotide.")
+        print("Error fetching FASTA from NCBI Nucleotide.")
+        return "EMPTY"
+        # raise Exception("Error fetching FASTA from NCBI Nucleotide.")
     return r.text
 
 
@@ -124,6 +126,22 @@ def download_fasta(species_dict: Dict[str, List[int]]) -> None:
         for gene in gene_list:
             fasta = fetch_fasta(gene["nuc_id"])
             write_fasta(fasta, f"{species}_{gene['gene_id']}.fasta")
+
+
+def concatenate_fasta() -> None:
+    """
+    Concatenate all FASTA files in the data directory into one FASTA file.
+    """
+    with open("data/concatenated.fasta", "w") as outfile:
+        for filename in os.listdir("data"):
+            if filename.endswith(".fasta"):
+                with open(f"data/{filename}", "r") as f:
+                    outfile.write(f.read())
+    
+    # Delete the files minus the concatenated file.
+    for filename in os.listdir("data"):
+        if filename.endswith(".fasta") and filename != "concatenated.fasta":
+            os.remove(f"data/{filename}")
 
 
 if __name__ == '__main__':
