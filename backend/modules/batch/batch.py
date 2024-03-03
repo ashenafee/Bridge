@@ -1,20 +1,15 @@
-# 1. Get the ID of the taxonomy query input.
-# 2. Fetch a list of all species in the taxonomy.
-# 3. Create a list of gene identifiers for each species' copy of the given gene.
-
-
-import sys
 import os
 import re
+import sys
 import time
-import json
 from typing import Dict, List
-import requests
-from tqdm import tqdm
-from bs4 import BeautifulSoup
-import time
-from dotenv import load_dotenv
 
+import requests
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from tqdm import tqdm
+
+from models import Identifier
 
 load_dotenv()
 
@@ -46,8 +41,10 @@ def fetch_species(gene_id: List[int]) -> Dict[str, List[int]]:
     with tqdm(total=len(gene_id), desc="Fetching species", unit="Species") as pbar:
         for i, gid in enumerate(gene_id):
             url = EFETCH.format(QUERY=f"?db=gene&id={gid}&retmode=xml&api_key={NCBI_API_KEY}")
-            r = requests.get(url)
+            r = requests.get(url, timeout=5)
             if r.status_code != 200:
+                print(f"Error fetching species for gene {gid}.")
+                print(r.text)
                 raise Exception("Error fetching species from NCBI Gene.")
             
             # Convert the XML response to a BeautifulSoup object.
@@ -56,11 +53,18 @@ def fetch_species(gene_id: List[int]) -> Dict[str, List[int]]:
             # Get the scientific name of the species.
             species = soup.find("Org-ref_taxname").text
 
+            # Get the taxonomy ID of the species.
+            txid = soup.find("BioSource_org").find("Org-ref_db").find("Object-id_id").text
+
+            if txid == "":
+                print(f"Could not find taxonomy ID for gene {gid}.")
+
             # Get the nucleotide sequence ID.
             nuc_id = soup.find("Gene-commentary_products").find("Gene-commentary_accession").text
 
             # Create a dictionary of the gene ID and the nucleotide sequence ID.
             gene_nuc_dict = {
+                "txid": txid,
                 "gene_id": gid,
                 "nuc_id": nuc_id
             }
@@ -118,14 +122,21 @@ def write_fasta(fasta: str, filename: str, base_dir: str = "data") -> None:
         f.write(fasta)
 
 
-def download_fasta(species_dict: Dict[str, List[int]]) -> None:
+def download_fasta(species_dict: Dict[str, List[Identifier]]) -> None:
     """
     Download FASTA files for each gene in a species dictionary.
     """
-    for species, gene_list in species_dict.items():
-        for gene in gene_list:
-            fasta = fetch_fasta(gene["nuc_id"])
-            write_fasta(fasta, f"{species}_{gene['gene_id']}.fasta")
+    with tqdm(total=len(species_dict), desc="Downloading FASTA", unit="Species") as pbar:
+        for species, gene_list in species_dict.items():
+            for gene in gene_list:
+                fasta = fetch_fasta(gene.nuc_id)
+                write_fasta(fasta, f"{species}_{gene.gene_id}.fasta")
+            pbar.update(1)
+
+    # for species, gene_list in tqdm(species_dict.items(), desc="Downloading FASTA"):
+    #     for gene in gene_list:
+    #         fasta = fetch_fasta(gene.nuc_id)
+    #         write_fasta(fasta, f"{species}_{gene.gene_id}.fasta")
 
 
 def concatenate_fasta() -> None:
