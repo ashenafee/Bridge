@@ -1,55 +1,89 @@
 <script lang="ts">
 	import { writable, type Writable } from "svelte/store";
-	import { ProgressBar } from '@skeletonlabs/skeleton';
+	import { getSpecies, downloadSpecies } from "../services/apiService";
+	import SpeciesList from "../components/SpeciesList.svelte";
+	import Progress from "../components/Progress.svelte";
+
+
+	interface Identifiers {
+		txid: string;
+		gene_id: string;
+		nuc_id: string;
+	}
+
+	interface Species {
+		name: string;
+		identifiers: Identifiers[]
+	}
 
 	const taxnomyName: Writable<string> = writable("");
 	const geneName: Writable<string> = writable("");
+	const searching: Writable<boolean> = writable(false);
 	const downloading: Writable<boolean> = writable(false);
+	
+	const species: Writable<Species[]> = writable([]);
+	const speciesMap: Writable<{[txid: string]: string}> = writable({});
+	
+	let selectAll: boolean = false;
+	let selectedSpecies: string[] = [];
 
-	/**
-	 * Resets the values of $taxnomyName and $geneName to an empty string.
-	 */
+
+	const searchButtonHandler = async () => {
+		$searching = true;
+
+		try {
+			$species = await getSpecies($taxnomyName, $geneName, $speciesMap);
+		} catch (error) {
+			console.error("There has been a problem with your fetch operation:", error);
+		} finally {
+			$searching = false;
+		}
+	};
+
+	const downloadButtonHandler = async () => {
+		$downloading = true;
+
+		const speciesSubset: {[key: string]: Identifiers[]} = parseSelectedSpecies();
+
+		try {
+			await downloadSpecies(speciesSubset);
+		} catch (error) {
+			console.error("There has been a problem with your fetch operation:", error);
+		} finally {
+			$downloading = false;
+			selectedSpecies = [];
+			selectAll = false;
+			$species = [];
+		}
+	};
+
 	const resetButtonHandler = () => {
 		$taxnomyName = "";
 		$geneName = "";
+		$species = [];
+		$speciesMap = {};
+		selectedSpecies = [];
+		selectAll = false;
 	};
 
-	const downloadButtonHandler = () => {
-		// TODO: Implement download functionality
+	/**
+	 * Parses the selected species and returns a dictionary of species names to identifiers.
+	 * @returns {Object} - A dictionary where the key is the name of the species and the value is the list of identifiers.
+	 */
+	const parseSelectedSpecies = (): {[key: string]: Identifiers[]} => {
+		// Map the selection of txids to the species names
+		const selectedSpeciesNames = selectedSpecies.map((txid) => $speciesMap[txid]);
 
-		// Set downloading to true
-		$downloading = true;
+		// Subset the species to only include the selected species
+		const selectedSpeciesData = $species.filter((s) => selectedSpeciesNames.includes(s.name));
 
-		// Send a request to localhost:8000/api/download
-		fetch("http://localhost:8000/api/download", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				taxonName: $taxnomyName,
-				geneName: $geneName,
-			}),
-		})
-			.then((response) => {
-				// Check if the response is ok
-				if (!response.ok) {
-					throw new Error("Network response was not ok");
-				}
+		// Create the dictionary of names to identifiers
+		const selectedSpeciesDataDict = selectedSpeciesData.reduce((acc: {[key: string]: Identifiers[]}, s) => {
+			acc[s.name] = s.identifiers;
+			return acc;
+		}, {});
 
-				// Return the response as a JSON object
-				return response.json();
-			})
-			.then((data) => {
-				console.log(data);
-			})
-			.catch((error) => {
-				console.error("There has been a problem with your fetch operation:", error);
-			})
-			.finally(() => {
-				// Set downloading to false
-				$downloading = false;
-			});
+		return selectedSpeciesDataDict;
 	};
 </script>
 
@@ -63,17 +97,23 @@
 	<div class="flex flex-row w-full space-x-2">
 		<!-- Reset -->
 		<button type="button" class="btn variant-filled my-2 w-full" on:click={resetButtonHandler}>Reset</button>
-		<!-- Download -->
-		<button type="button" class="btn variant-filled my-2 w-full" on:click={downloadButtonHandler}>Download</button>
+		<!-- Search -->
+		{#if $species.length > 0}
+			<button type="button" class="btn variant-filled my-2 w-full" on:click={searchButtonHandler} disabled>Search</button>
+		{:else}
+			<button type="button" class="btn variant-filled my-2 w-full" on:click={searchButtonHandler}>Search</button>
+		{/if}
 	</div>
 
 	<!-- Progress -->
-	{#if $downloading}
-		<div class="w-full px-2">
-			<div class="flex flex-row justify-between">
-				<p class="text-sm text-gray-500">Downloading '{($geneName || 'Unknown gene')}' for all species in '{($taxnomyName || 'Unknown taxonomy')}' which have the gene available on the NCBI.</p>
-			</div>
-			<ProgressBar class="my-2" value={undefined} />
+	<Progress downloading={$downloading} searching={$searching} geneName={$geneName} taxnomyName={$taxnomyName} />
+
+	{#if $species.length > 0}
+		<SpeciesList {species} bind:selectedSpecies={selectedSpecies} {selectAll} />
+
+		<!-- Download Button -->
+		<div class="flex flex-row w-full space-x-2">
+			<button type="button" class="btn variant-filled my-2 w-full" on:click={downloadButtonHandler}>Download</button>
 		</div>
 	{/if}
 </div>
