@@ -1,4 +1,4 @@
-# Web App Setup
+# Bridge: Batch Coding Sequence Downloader
 
 This documentation will guide you through setting up the backend and frontend for the graphical user interface (GUI) for downloading batch coding sequences.
 
@@ -6,8 +6,33 @@ This documentation will guide you through setting up the backend and frontend fo
 
 - [Node.js](https://nodejs.org/en/download/)
 - [Python 3.11+](https://www.python.org/downloads/)
+- NCBI Entrez API key
 
-## Setup
+## NCBI Configuration
+
+### Obtaining an NCBI Entrez API Key
+
+1. Sign in to your NCBI account or create a new one [here](https://www.ncbi.nlm.nih.gov/account/).
+
+2. After signing in, navigate to your account's [settings](https://account.ncbi.nlm.nih.gov/settings/) page.
+
+3. Scroll to the section titled **API Key Management** and click the **Create an API Key** button.
+
+For more information, refer to [this](https://support.nlm.nih.gov/knowledgebase/article/KA-05317/en-us) guide by the NCBI.
+
+### Setting the NCBI Entrez API Key
+
+1. Navigate to the root directory of the repository.
+
+2. Create a new file named `.env`.
+
+3. Open the `.env` file in a text editor and add the following line.
+
+    ```env
+    NCBI_API_KEY=your_api_key
+    ```
+
+## App Setup
 
 Make sure to do the setup for backend and frontend in different terminal windows.
 
@@ -83,4 +108,4 @@ npm run dev
 
 **I've clicked the `Download` button, but the console shows an error. What should I do?**
 
-This is a known issue. To avoid it, click the `Download` button again.
+This is a known issue. To get past it, click the `Download` button again.
