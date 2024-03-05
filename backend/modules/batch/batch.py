@@ -24,7 +24,7 @@ def taxon_name_to_id(taxon_name: str) -> int:
     """
     Convert a taxon name to a taxon ID using the NCBI Taxonomy Browser API.
     """
-    url = ESEARCH.format(QUERY=f"?db=taxonomy&term={taxon_name}")
+    url = ESEARCH.format(QUERY=f"?db=taxonomy&term={taxon_name}&api_key={NCBI_API_KEY}")
     r = requests.get(url)
     if r.status_code != 200:
         raise Exception("Error fetching taxon ID from NCBI Taxonomy Browser.")
