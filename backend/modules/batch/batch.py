@@ -109,11 +109,22 @@ def fetch_fasta(nuc_id: str) -> str:
     return r.text
 
 
+def modify_fasta_header(fasta: str, species: str) -> str:
+    """
+    Modify the header of a FASTA sequence to consist of the species name and
+    the gene symbol.
+    """
+    # Extract the gene symbol from the header.
+    gene_symbol = re.findall(r"\[gene=(\w+)\]", fasta)[0]
+
+    # Replace the original header with the new header.
+    return f">{species} {gene_symbol}\n" + fasta.split("\n", 1)[1]
+
+
 def write_fasta(fasta: str, filename: str, base_dir: str = "data") -> None:
     """
     Write a FASTA string to a file.
     """
-
     # Create the data directory if it doesn't exist.
     if not os.path.exists(base_dir):
         os.mkdir(base_dir)
@@ -130,13 +141,10 @@ def download_fasta(species_dict: Dict[str, List[Identifier]]) -> None:
         for species, gene_list in species_dict.items():
             for gene in gene_list:
                 fasta = fetch_fasta(gene.nuc_id)
+                if fasta != "EMPTY":
+                    fasta = modify_fasta_header(fasta, species)
                 write_fasta(fasta, f"{species}_{gene.gene_id}.fasta")
             pbar.update(1)
-
-    # for species, gene_list in tqdm(species_dict.items(), desc="Downloading FASTA"):
-    #     for gene in gene_list:
-    #         fasta = fetch_fasta(gene.nuc_id)
-    #         write_fasta(fasta, f"{species}_{gene.gene_id}.fasta")
 
 
 def concatenate_fasta() -> None:
