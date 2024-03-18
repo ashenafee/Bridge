@@ -59,21 +59,36 @@ def fetch_species(gene_id: List[int]) -> Dict[str, List[int]]:
             if txid == "":
                 print(f"Could not find taxonomy ID for gene {gid}.")
 
-            # Get the nucleotide sequence ID.
-            nuc_id = soup.find("Gene-commentary_products").find("Gene-commentary_accession").text
+            # Get all gene commentary products            
+            accessions = []
 
-            # Create a dictionary of the gene ID and the nucleotide sequence ID.
-            gene_nuc_dict = {
-                "txid": txid,
-                "gene_id": gid,
-                "nuc_id": nuc_id
-            }
+            # Find all "Gene-commentary_type" tags with a value of "mRNA"
+            for gc in soup.find_all("Gene-commentary_type", attrs={"value": "mRNA"}):
+                # Get the sibling "Gene-commentary_accession" tag
+                gc_accession = gc.find_next("Gene-commentary_accession")
+                if gc_accession:
+                    accessions.append(gc_accession.text)
+            
+            # Make sure the gene_commentary_products list is unique
+            accessions = list(set(accessions))
+            
+            if len(accessions) == 0:
+                print(f"Could not find mRNA for gene {gid}.")
+                continue
 
-            # Add the species to the dictionary.
-            if species in species_dict:
-                species_dict[species].append(gene_nuc_dict)
-            else:
-                species_dict[species] = [gene_nuc_dict]
+            # Add each gene ID and nucleotide sequence ID to the species dictionary.
+            for nuc_id in accessions:
+                gene_nuc_dict = {
+                    "txid": txid,
+                    "gene_id": gid,
+                    "nuc_id": nuc_id
+                }
+
+                # Add the species to the dictionary.
+                if species in species_dict:
+                    species_dict[species].append(gene_nuc_dict)
+                else:
+                    species_dict[species] = [gene_nuc_dict]
             
             if (i + 1) % 10 == 0:
                 time.sleep(1.5)
@@ -139,11 +154,14 @@ def download_fasta(species_dict: Dict[str, List[Identifier]]) -> None:
     """
     with tqdm(total=len(species_dict), desc="Downloading FASTA", unit="Species") as pbar:
         for species, gene_list in species_dict.items():
+            fasta_list = []
             for gene in gene_list:
                 fasta = fetch_fasta(gene.nuc_id)
-                if fasta != "EMPTY":
+                if fasta != "EMPTY" and fasta != "\n" and fasta != "" and fasta != " ":
                     fasta = modify_fasta_header(fasta, species)
-                write_fasta(fasta, f"{species}_{gene.gene_id}.fasta")
+                    fasta_list.append(fasta)
+            all_fasta = "\n".join(fasta_list)
+            write_fasta(all_fasta, f"{species}.fasta")
             pbar.update(1)
 
 
