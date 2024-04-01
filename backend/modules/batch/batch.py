@@ -3,6 +3,7 @@ import re
 import sys
 import time
 from typing import Dict, List
+import zipfile
 
 import requests
 from bs4 import BeautifulSoup
@@ -25,6 +26,7 @@ def taxon_name_to_id(taxon_name: str) -> int:
     Convert a taxon name to a taxon ID using the NCBI Taxonomy Browser API.
     """
     url = ESEARCH.format(QUERY=f"?db=taxonomy&term={taxon_name}&api_key={NCBI_API_KEY}")
+    print(url)
     r = requests.get(url)
     if r.status_code != 200:
         raise Exception("Error fetching taxon ID from NCBI Taxonomy Browser.")
@@ -124,16 +126,24 @@ def fetch_fasta(nuc_id: str) -> str:
     return r.text
 
 
-def modify_fasta_header(fasta: str, species: str) -> str:
+def modify_fasta_header(fasta: str, species: str) -> tuple:
     """
     Modify the header of a FASTA sequence to consist of the species name and
     the gene symbol.
     """
+    gene_symbol = ""
+
+    # List of failed FASTA headers.
+    failed = "Failed to extract gene symbol for:\n"
     # Extract the gene symbol from the header.
-    gene_symbol = re.findall(r"\[gene=(\w+)\]", fasta)[0]
+    try:
+        gene_symbol = re.findall(r"\[gene=(\w+)\]", fasta)[0]
+    except IndexError:
+        failure = f"\t {species}"
+        failed += failure
 
     # Replace the original header with the new header.
-    return f">{species} {gene_symbol}\n" + fasta.split("\n", 1)[1]
+    return f">{species} {gene_symbol}\n" + fasta.split("\n", 1)[1], failed
 
 
 def write_fasta(fasta: str, filename: str, base_dir: str = "data") -> None:
@@ -148,21 +158,55 @@ def write_fasta(fasta: str, filename: str, base_dir: str = "data") -> None:
         f.write(fasta)
 
 
-def download_fasta(species_dict: Dict[str, List[Identifier]]) -> None:
+def clear_directory(directory: str) -> None:
+    """
+    Clear the contents of a directory.
+    """
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
+
+
+def download_fasta(species_dict: Dict[str, List[Identifier]]) -> str:
     """
     Download FASTA files for each gene in a species dictionary.
     """
+    # Create a directory for storing the FASTA files
+    fasta_dir = os.path.join(os.getcwd(), 'fasta_files')
+    os.makedirs(fasta_dir, exist_ok=True)
+
+    # Clear the directory of any existing files
+    clear_directory(fasta_dir)
+
     with tqdm(total=len(species_dict), desc="Downloading FASTA", unit="Species") as pbar:
         for species, gene_list in species_dict.items():
             fasta_list = []
             for gene in gene_list:
                 fasta = fetch_fasta(gene.nuc_id)
                 if fasta != "EMPTY" and fasta != "\n" and fasta != "" and fasta != " ":
-                    fasta = modify_fasta_header(fasta, species)
+                    # fasta, failed = modify_fasta_header(fasta, species)
                     fasta_list.append(fasta)
+                    # print(failed)
             all_fasta = "\n".join(fasta_list)
-            write_fasta(all_fasta, f"{species}.fasta")
+            fasta_file_path = os.path.join(fasta_dir, f"{species}.fasta")
+            write_fasta(all_fasta, fasta_file_path)
             pbar.update(1)
+
+    # Create a zip file
+    zip_file_path = os.path.join(fasta_dir, "fasta_files.zip")
+    with zipfile.ZipFile(zip_file_path, 'w') as zip_f:
+        for root, dirs, files in os.walk(fasta_dir):
+            for file in files:
+                if file.endswith('.fasta'):
+                    zip_f.write(os.path.join(root, file), arcname=file)
+
+    return zip_file_path
 
 
 def concatenate_fasta() -> None:

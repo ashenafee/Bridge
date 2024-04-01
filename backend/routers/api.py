@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+from fastapi.responses import FileResponse
 
 from models import (DownloadRequest, DownloadResponse, SpeciesRequest,
                     SpeciesResponse)
@@ -44,8 +45,7 @@ async def get_species(request_data: SpeciesRequest) -> SpeciesResponse:
 
 
 @router.post("/download")
-async def download(request_data: DownloadRequest) -> None:
-    pass
+async def download(request_data: DownloadRequest) -> Response:
     # Extract the species data from the request body.
     species_data = request_data.species_data
 
@@ -54,6 +54,6 @@ async def download(request_data: DownloadRequest) -> None:
     )
 
     # Download the FASTA sequences for each gene.
-    download_fasta(species_data)
+    file_path = download_fasta(species_data)
 
-    return DownloadResponse(status="Download completed")
+    return FileResponse(file_path, media_type='application/octet-stream', filename='fasta_files.zip')
