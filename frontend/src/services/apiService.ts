@@ -4,6 +4,12 @@ interface Identifiers {
     nuc_id: string;
 }
 
+export function getPort(): string {
+    return import.meta.env.VITE_BACKEND_PORT;
+}
+const PORT = getPort();
+const BASE_URL = `http://localhost:${PORT}/api`;
+
 /**
  * Retrieves the identifiers of all species under a taxonomy that have a given
  * gene available on the NCBI database.
@@ -15,7 +21,7 @@ interface Identifiers {
  * @throws An error if the network response is not ok.
  */
 export const getSpecies = async (taxonName: string, geneName: string, speciesMap: { [key: string]: string }): Promise<{ name: string, identifiers: Identifiers[] }[]> => {
-    const response = await fetch("http://localhost:8000/api/get_species", {
+    const response = await fetch(`${BASE_URL}/get_species`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -57,11 +63,13 @@ export const getSpecies = async (taxonName: string, geneName: string, speciesMap
  * from the NCBI database.
  * 
  * @param speciesSubset - An object containing species identifiers.
- * @returns A Promise that resolves to the downloaded data.
+ * @param taxonName - The taxon name.
+ * @param geneName - The gene name.
+ * @returns A Promise that resolves when the file download is initiated.
  * @throws An error if the network response is not ok.
  */
-export const downloadSpecies = async (speciesSubset: { [key: string]: Identifiers[] }) => {
-    const response = await fetch("http://localhost:8000/api/download", {
+export const downloadSpecies = async (speciesSubset: { [key: string]: Identifiers[] }, taxonName: string, geneName: string) => {
+    const response = await fetch(`${BASE_URL}/download`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -75,6 +83,13 @@ export const downloadSpecies = async (speciesSubset: { [key: string]: Identifier
         throw new Error("Network response was not ok");
     }
 
-    const data = await response.json();
-    return data;
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const filename = `${taxonName}_${geneName}.zip`;
+    link.href = url;    
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };

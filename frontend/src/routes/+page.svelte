@@ -46,7 +46,7 @@
 		const speciesSubset: {[key: string]: Identifiers[]} = parseSelectedSpecies();
 
 		try {
-			await downloadSpecies(speciesSubset);
+			await downloadSpecies(speciesSubset, $taxnomyName, $geneName);
 		} catch (error) {
 			console.error("There has been a problem with your fetch operation:", error);
 		} finally {
